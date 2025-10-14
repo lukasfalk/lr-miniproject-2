@@ -101,14 +101,12 @@ The structure of your submission folder should look like this:
 lr_mp2_group_{group number}.zip
 |- report.pdf               # Your report in PDF
 |- env/                     # Script with your changes
-|  |- __init__.py
 |  |- configs_a1.py
 |  |- hopf_network.py
 |  |- quadruped.py
 |  |- quadruped_gym_env.py
 |  \- quadruped_motor.py
 |- utils/                   # Helper scripts
-|  |- __init__.py
 |  |- file_utils.py
 |  \- utils.py
 |- videos/                  # Include relevant videos!
@@ -124,7 +122,8 @@ lr_mp2_group_{group number}.zip
 |  \- ...                   # Extra weights that you may have
 |- load_sb3.py              # Script with your changes
 |- run_cpg.py               # Script with your changes
-\- run_sb3.py               # Script with your changes
+|- run_sb3.py               # Script with your changes
+\- requirements.txt         # Script with your changes
 ```
 
 **Note that the max submission size is 100 MB, which means you may have to compress your videos.**
