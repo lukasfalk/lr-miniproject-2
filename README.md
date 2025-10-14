@@ -107,7 +107,7 @@ lr_mp2_group_{group number}.zip
 |  |- quadruped.py
 |  |- quadruped_gym_env.py
 |  \- quadruped_motor.py
-|- env/                     # Helper scripts
+|- utils/                   # Helper scripts
 |  |- __init__.py
 |  |- file_utils.py
 |  \- utils.py
