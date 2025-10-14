@@ -116,7 +116,7 @@ lr_mp2_group_{group number}.zip
 |  |- RL_GAPS.mp4|
 |  \- ...                   # Extra videos that you may have
 |- weights/                 # Include relevant weights!
-|  |- TROT.zip|              # Descriptive name examples
+|  |- TROT.zip|             # Descriptive name examples
 |  |- RL_VEL_0.5ms.zip|
 |  |- RL_GAPS.zip|
 |  \- ...                   # Extra weights that you may have
