@@ -1,93 +1,141 @@
-# LR Miniproject 2
+# MP2: Quaduped Locomotion 
 
+This repository contains an environment for simulating locomotion onboard a quadruped robot using cpg alone and also cpg with Reinforcement Learning (RL). The framework is inspired from RL [1] and CPG-RL [2] papers. You will **only modify a few specific files**, the rest provide the environment and helper code.
 
+## Quick start installation 
 
-## Getting started
+```bash
+# 1. Create environment (with conda, recommended)
+conda create -n quadruped python=3.9
+conda activate quadruped
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
-
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
-
-## Add your files
-
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
-
-```
-cd existing_repo
-git remote add origin https://gitlab.epfl.ch/pey/lr-miniproject-2.git
-git branch -M main
-git push -uf origin main
+# 2. Install dependencies
+pip install -r requirements.txt
+# If pybullet fails, install through conda before installing requirements again:
+conda install conda-forge::pybullet
 ```
 
-## Integrate with your tools
+## Not so quick start installation
+Installation follows the same structure as the [practicals](https://gitlab.epfl.ch/lgevers/lr-practicals).
 
-- [ ] [Set up project integrations](https://gitlab.epfl.ch/pey/lr-miniproject-2/-/settings/integrations)
+### 1. Create a virtual environment
+We recommend using **conda** (preferred) or **virtualenv** with **Python 3.9** or higher.
+It is a good practice to keep separate environments for different projects, so we encourage you to create a new environment for this project rather than reusing the one for the practicals (especially since the dependencies are not exactly the same).
 
-## Collaborate with your team
+After downloading the repository, create the virtual environment as follows:
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
+```bash
+# With conda (recommended)
+conda create -n quadruped python=3.9
 
-## Test and Deploy
+# With virtualenv (alternative)
+python -m venv venv
+```
 
-Use the built-in continuous integration in GitLab.
+Then, activate your environment every time you intend on using it for this project:
 
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+```bash
+# With conda (recommended)
+conda activate quadruped
 
-***
+# With virtualenv (alternative)
+# Note that you need to be in the project directory containing the venv/ folder
+source venv/bin/activate    # Linux/Mac OS
+venv\Scripts\Activate       # Windows
+```
 
-# Editing this README
+### 2. Install dependencies
+```bash
+pip install -r requirements.txt
+```
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+⚠️ If pybullet fails to install (compilation issues), install through conda and then install the `requirements.txt` again:
 
-## Suggestions for a good README
+```bash
+conda install conda-forge::pybullet
+```
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+## Repository structure
+```bash
+.
+├── a1_description/             # Model files for a1 robot
+│   ├── meshes/                 # Meshes of A1 (DO NOT MODIFY)
+│   └── urdf/                   # Robot model structure
+├── env/                        # Environment modelling files
+│   ├── configs_a1.py           # Configurations of a1 robot components
+│   └── hopf_network.py         # CPG class skeleton for various gaits
+│   └── quadruped_gym_env.py    # Setting up RL environment 
+│   └── quadruped_motor.py      # Motor model of a1 robot
+│   └── quadruped.py            # Robot specific functionalities, review this closely to access robot states
+│                               # and calling functions to solve inverse kinematics, return the leg Jacobian etc
+├── utils/                      # Some file i/o and plotting helpers
+│   └── file_utils.py           # Basic helper functions 
+│   └── utils.py                # Basic helper functions 
+├── load_sb3.py                 # Loads and plays trained RL policy
+├── run_cpg.py                  # Run CPG to joint commands
+├── run_sb3.py                  # Provides an interface to train RL policy with RL algorithms
+└── requirements.txt            # Dependencies
+```
 
-## Name
-Choose a self-explaining name for your project.
+## Modify the following files (at the TODO tags)
+- `quadruped_gym_env.py`
+- `hopf_network.py`
+- `run_cpg.py`
+- `load_sb3.py`
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+**These are the main files to modify and get your CPG and CPG-RL pipeline running. It is highly recommended to tune or adjust parameters for better performance from other scripts only when you have setup a basic running CPG and CPG-RL workflow.**
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+## Code resources
+- The [PyBullet Quickstart Guide](https://docs.google.com/document/d/10sXEhzFRSnvFcl3XxNGhnD4N2SedqwdAvK3dsihxVUA/edit#heading=h.2ye70wns7io3) is the current up-to-date documentation for interfacing with the simulation. 
+- The quadruped environment took inspiration from [Google's motion-imitation repository](https://github.com/google-research/motion_imitation) based on [this paper](https://xbpeng.github.io/projects/Robotic_Imitation/2020_Robotic_Imitation.pdf). 
+- Reinforcement learning algorithms from [stable-baselines3](https://github.com/DLR-RM/stable-baselines3). Also see for example [ray[rllib]](https://github.com/ray-project/ray) and [spinningup](https://github.com/openai/spinningup). You should review the documentation carefully for information on the different algorithms and training hyperparameters. 
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+## Submission
+When submitting zip all your code files together.
+These should be your **code files only** (e.g., no `venv` directory for the virtual environment).
+You should include the `requirements.txt` in case you are adding new dependencies.
+Video namings should be consistent with those that you refer to in your report.
+The structure of your submission folder should look like this:
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+```bash
+lr_mp2_group_{group number}.zip
+|- report.pdf               # Your report in PDF
+|- env/                     # Script with your changes
+|  |- __init__.py
+|  |- configs_a1.py
+|  |- hopf_network.py
+|  |- quadruped.py
+|  |- quadruped_gym_env.py
+|  \- quadruped_motor.py
+|- env/                     # Helper scripts
+|  |- __init__.py
+|  |- file_utils.py
+|  \- utils.py
+|- videos/                  # Include relevant videos!
+|  |- TROT_HIGH_0.5ms.mp4|  # Descriptive name examples
+|  |- TROT_LOW_0.5ms.mp4|   
+|  |- RL_VEL_0.5ms.mp4|
+|  |- RL_GAPS.mp4|
+|  \- ...                   # Extra videos that you may have
+|- weights/                 # Include relevant weights!
+|  |- TROT.zip|              # Descriptive name examples
+|  |- RL_VEL_0.5ms.zip|
+|  |- RL_GAPS.zip|
+|  \- ...                   # Extra weights that you may have
+|- load_sb3.py              # Script with your changes
+|- run_cpg.py               # Script with your changes
+\- run_sb3.py               # Script with your changes
+```
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+**Note that the max submission size is 100 MB, which means you may have to compress your videos.**
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+##  References
+```
+[1] G. Bellegarda and A. Ijspeert, "CPG-RL: Learning Central Pattern Generators for Quadruped Locomotion," in IEEE Robotics and Automation Letters, 2022, doi: 10.1109/LRA.2022.3218167. [IEEE](https://ieeexplore.ieee.org/abstract/document/9932888), [arxiv](https://arxiv.org/abs/2211.00458)
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+[2] G. Bellegarda, Y. Chen, Z. Liu, and Q. Nguyen, "Robust High-speed Running for Quadruped Robots via Deep Reinforcement Learning," in 2022 IEEE/RSJ International Conference on Intelligent Robots and Systems, 2022. [arxiv](https://arxiv.org/abs/2103.06484)
+```
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
-
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
-
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
-
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
-
-## License
-For open source projects, say how it is licensed.
-
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+## Tips
+- If your simulation is very slow, remove the calls to time.sleep() and disable the camera resets in [quadruped_gym_env.py](./env/quadruped_gym_env.py).
+- The camera viewer can be modified in `_render_step_helper()` in [quadruped_gym_env.py](./env/quadruped_gym_env.py) to track the hopper.
