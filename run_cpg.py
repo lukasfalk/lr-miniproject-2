@@ -104,6 +104,9 @@ for j in range(TEST_STEPS):
 
     # add Cartesian PD contribution
     if ADD_CARTESIAN_PD:
+      # Get desired xyz position in leg frame (use ComputeJacobianAndPosition with the joint angles you just found above)
+      # [TODO] 
+
       # Get current Jacobian and foot position in leg frame (see ComputeJacobianAndPosition() in quadruped.py)
       # [TODO] 
 
@@ -124,6 +127,8 @@ for j in range(TEST_STEPS):
 ##################################################### 
 # PLOTS
 #####################################################
+# [TODO] Create your plots
+
 # example
 # fig = plt.figure()
 # plt.plot(t,joint_pos[1,:], label='FR thigh')

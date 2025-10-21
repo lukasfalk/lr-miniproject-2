@@ -54,7 +54,6 @@ LOAD_NN = False # if you want to initialize training with a previous model
 NUM_ENVS = 1    # how many pybullet environments to create for data collection
 USE_GPU = False # make sure to install all necessary drivers 
 
-LEARNING_ALG = "SAC";  USE_GPU = True
 # after implementing, you will want to test how well the agent learns with your MDP: 
 # env_configs = {"motor_control_mode":"CPG",
 #                "task_env": "FWD_LOCOMOTION", #  "LR_COURSE_TASK",
@@ -91,8 +90,8 @@ if LOAD_NN:
     env = make_vec_env(env, monitor_dir=SAVE_PATH, n_envs=NUM_ENVS)
     env = VecNormalize.load(stats_path, env)
 
-# Multi-layer perceptron (MLP) policy of two layers of size _,_ 
-policy_kwargs = dict(net_arch=[256,256])
+# Multi-layer perceptron (MLP) policy of two layers of size _,_ each with tanh activation function
+policy_kwargs = dict(net_arch=[256,256]) # act_fun=tf.nn.tanh
 
 # What are these hyperparameters? Check here: https://stable-baselines3.readthedocs.io/en/master/modules/ppo.html
 n_steps = 4096 
