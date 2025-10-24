@@ -327,12 +327,20 @@ class Quadruped(object):
   ######################################################################################
   # Jacobian, IK, etc. 
   ######################################################################################
-  def ComputeJacobianAndPosition(self, legID):
+  def ComputeJacobianAndPosition(self, legID, specific_q=None):
     """ Get Jacobian and foot position of leg legID. 
+    Can also get the Jacobian / foot position for a specific joint angle configuration. 
+
     Leg 0: FR; Leg 1: FL; Leg 2: RR ; Leg 3: RL;
     """
     # joint positions of leg legID
-    q = self.GetMotorAngles()[legID*3:legID*3+3]
+    if specific_q is not None:
+      # get Jacobian and foot position for specific joint angles (i.e. forward kinematics)
+      q = specific_q
+    else:
+      # joint positions of leg
+      q = self.GetMotorAngles()[legID*3:legID*3+3]
+      q -= self._robot_config.JOINT_OFFSETS[legID*3:legID*3+3]
 
     # rename links
     l1 = self._robot_config.HIP_LINK_LENGTH
