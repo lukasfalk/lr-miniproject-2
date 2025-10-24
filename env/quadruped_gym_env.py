@@ -551,8 +551,13 @@ class QuadrupedGymEnv(gym.Env):
     """ Set up simulation environment. """
     mu_min = 0.5
 
+    # Update seed
     self.seed(seed)
     
+    # Disable rendering when setting up models (otherwise too slow)
+    if self._is_render:
+      self._pybullet_client.configureDebugVisualizer(pybullet.COV_ENABLE_RENDERING, 0)
+
     if self._hard_reset:
       # set up pybullet simulation
       self._pybullet_client.resetSimulation()
@@ -609,14 +614,15 @@ class QuadrupedGymEnv(gym.Env):
     else:
       self.robot.Reset(reload_urdf=False)
 
-    self.setupCPG()
     self._env_step_counter = 0
     self._sim_step_counter = 0
     self._last_base_position = [0, 0, 0]
 
+    # Enable rendering again
     if self._is_render:
       self._pybullet_client.resetDebugVisualizerCamera(self._cam_dist, self._cam_yaw,
                                                        self._cam_pitch, [0, 0, 0])
+      self._pybullet_client.configureDebugVisualizer(pybullet.COV_ENABLE_RENDERING, 1)
 
     self._settle_robot()
     self._last_action = np.zeros(self._action_dim)
@@ -668,14 +674,11 @@ class QuadrupedGymEnv(gym.Env):
     
     init_motor_angles = self._robot_config.INIT_MOTOR_ANGLES + self._robot_config.JOINT_OFFSETS
     
-    if self._is_render:
-      time.sleep(0.2)
-    
     for _ in range(1000):
       self.robot.ApplyAction(init_motor_angles)
       
       if self._is_render:
-        time.sleep(0.001)
+        self._render_step_helper()
       self._pybullet_client.stepSimulation()
     
     # set control mode back
@@ -734,14 +737,13 @@ class QuadrupedGymEnv(gym.Env):
     """ Helper to configure the visualizer camera during step(). """
     # Sleep, otherwise the computation takes less time than real time,
     # which will make the visualization like a fast-forward video.
-    time_spent = time.time() - self._last_frame_time
-    self._last_frame_time = time.time()
-    # time_to_sleep = self._action_repeat * self._time_step - time_spent
-    time_to_sleep = self._time_step - time_spent
-    
-    if time_to_sleep > 0 and (time_to_sleep < self._time_step):
-      time.sleep(time_to_sleep)
-      
+    current_time = time.monotonic()
+    elapsed = current_time - self._last_frame_time
+    self._last_frame_time = current_time
+    time_diff = max(0, self._time_step - elapsed)
+    if time_diff > 0:
+      time.sleep(time_diff)
+
     base_pos = self.robot.GetBasePosition()
     camInfo = self._pybullet_client.getDebugVisualizerCamera()
     curTargetPos = camInfo[11]
