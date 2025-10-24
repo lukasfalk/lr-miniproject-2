@@ -29,7 +29,7 @@
 # Copyright (c) 2022 EPFL, Guillaume Bellegarda
 
 import os, sys
-import gym
+import gymnasium as gym
 import numpy as np
 import time
 import matplotlib

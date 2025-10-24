@@ -38,11 +38,12 @@ os.sys.path.insert(0, currentdir)
 # misc
 import time, datetime
 import numpy as np
+from typing import Optional
 
 # gym
-import gym
-from gym import spaces
-from gym.utils import seeding
+import gymnasium as gym
+from gymnasium import spaces
+from gymnasium.utils import seeding
 
 # pybullet
 import pybullet
@@ -272,6 +273,9 @@ class QuadrupedGymEnv(gym.Env):
     if self._observation_noise_stdev > 0:
       observation += self._add_obs_noise
     return observation
+
+  def _get_info(self) -> dict:
+    return {'base_pos': self.robot.GetBasePosition()} 
 
   ######################################################################################
   # Termination and reward
@@ -527,10 +531,10 @@ class QuadrupedGymEnv(gym.Env):
     self._last_action = curr_act
     self._env_step_counter += 1
     reward = self._reward()
-    done = False
+    truncated = False
     
-    if self._termination() or (self.get_sim_time() > self._MAX_EP_LEN and not self._test_flagrun ):
-      done = True
+    if (self.get_sim_time() > self._MAX_EP_LEN and not self._test_flagrun ):
+      truncated = True
 
     if "FLAGRUN" in self._TASK_ENV:
       dist_to_goal, _ = self.get_distance_and_angle_to_goal()
@@ -538,14 +542,16 @@ class QuadrupedGymEnv(gym.Env):
       if dist_to_goal < 0.5:
         self._reset_goal()
 
-    return np.array(self._noisy_observation()), reward, done, {'base_pos': self.robot.GetBasePosition()} 
+    return np.array(self._noisy_observation()), reward, self._termination(), truncated, self._get_info()
 
   ######################################################################################
   # Reset
   ######################################################################################
-  def reset(self):
+  def reset(self, seed: Optional[float] = None):
     """ Set up simulation environment. """
     mu_min = 0.5
+
+    self.seed(seed)
     
     if self._hard_reset:
       # set up pybullet simulation
@@ -618,7 +624,7 @@ class QuadrupedGymEnv(gym.Env):
     if self._is_record_video:
       self.recordVideoHelper()
     
-    return self._noisy_observation()
+    return self._noisy_observation(), self._get_info()
 
   def _reset_goal(self):
     """Reset goal location for flagrun."""
@@ -1034,7 +1040,7 @@ def test_env():
 
   while True:
     action = 2*np.random.rand(action_dim)-1
-    obs, reward, done, info = env.step(action)
+    obs, reward, terminated, truncated, info = env.step(action)
 
 if __name__ == "__main__":
   # test out some functionalities
