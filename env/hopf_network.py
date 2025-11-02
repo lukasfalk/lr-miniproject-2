@@ -146,6 +146,9 @@ class HopfNetwork():
     # map CPG variables to Cartesian foot xz positions (Equations 8, 9) 
     x = np.zeros(4) # [TODO]
     z = np.zeros(4) # [TODO]
+    
+    #implementation of x and z
+    for i in range(N_LEGS)
 
     # scale x by step length
     if not self.use_RL:
