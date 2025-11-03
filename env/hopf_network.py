@@ -95,7 +95,7 @@ class HopfNetwork():
     if use_RL:
       self.X[0,:] = MU_LOW # mapping MU_LOW=1 to MU_UPP=2
 
-  def _set_gait(self,gait):
+  def _set_gait(self, gait):
     """ For coupling oscillators in phase space. 
     [TODO] Update all coupling matrices.
     """
@@ -124,6 +124,7 @@ class HopfNetwork():
       [np.pi, np.pi/2, 3*np.pi/2, 0]
     ])
 
+    gait = gait.upper()
     if gait == "TROT":
       self.PHI = self.PHI_trot
     elif gait == "PACE":
@@ -133,7 +134,7 @@ class HopfNetwork():
     elif gait == "WALK":
       self.PHI = self.PHI_walk
     else:
-      raise ValueError( gait + 'not implemented.')
+      raise ValueError( gait + ' not implemented.')
 
   def update(self):
     """ Update oscillator states. """
@@ -181,21 +182,20 @@ class HopfNetwork():
     for i in range(4):
       # get r_i, theta_i from X
       #r, theta = 0, 0 # [TODO]
-      r , theta = X[:, i]
+      r, theta = X[:, i]
       # compute r_dot (Equation 6)
       #r_dot = 0 # [TODO]
       r_dot = self._alpha*(self._mu-r**2)*r
       # determine whether oscillator i is in swing or stance phase to set natural frequency omega_swing or omega_stance (see Section 3)
-      #theta_dot = 0 # [TODO]
-      theta_principalAngle = theta % (2*np.pi)
-      if 0 <= theta_principalAngle <= np.pi:
+      theta_dot = 0 # [TODO]
+      theta_principal_angle = theta % (2*np.pi)
+      if 0 <= theta_principal_angle <= np.pi:
         omega_i = self._omega_swing
       else:
         omega_i = self._omega_stance
-
       # loop through other oscillators to add coupling (Equation 7)
       if self._couple:
-        theta_dot += 0 # [TODO]
+        theta_dot += omega_i # [TODO]
         for j in range(4):
           if i != j:
             theta_dot += X[0, j]*self._coupling_strength*np.sin(X[1,j]-theta-self.PHI[i,j])
