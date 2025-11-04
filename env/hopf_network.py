@@ -192,7 +192,7 @@ class HopfNetwork():
     # loop through each leg's oscillator
     for i in range(4):
       # get r_i, theta_i from X
-      #r, theta = 0, 0 # [TODO]
+      #r, theta = 0, 0 # [TODO][x]
       r, theta = X[:, i]
       # compute r_dot (Equation 6)
       #r_dot = 0 # [TODO][x]

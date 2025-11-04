@@ -70,8 +70,8 @@ t = np.arange(TEST_STEPS)*TIME_STEP
 
 ############## Sample Gains
 # joint PD gains
-kp=np.array([100,100,100])
-kd=np.array([2,2,2])
+kp = np.array([100,100,100])
+kd = np.array([2,2,2])
 
 # Cartesian PD gains
 kpCartesian = np.diag([500]*3)
@@ -82,11 +82,11 @@ for j in range(TEST_STEPS):
   action = np.zeros(12) 
 
   # get desired foot positions from CPG 
-  xs,zs = cpg.update()
+  xs, zs = cpg.update()
 
   # [TODO] get current motor angles and velocities for joint PD, see GetMotorAngles(), GetMotorVelocities() in quadruped.py
-  # q = env.robot.GetMotorAngles()
-  # dq = env.robot.GetMotorVelocities()
+  q = env.robot.GetMotorAngles()
+  dq = env.robot.GetMotorVelocities()
 
   # loop through desired foot positions and calculate torques
   for i in range(4):
@@ -97,10 +97,12 @@ for j in range(TEST_STEPS):
     leg_xyz = np.array([xs[i], sideSign[i] * foot_y, zs[i]])
 
     # call inverse kinematics to get corresponding joint angles (see ComputeInverseKinematics() in quadruped.py)
-    leg_q = np.zeros(3) # [TODO] 
+    leg_q = env.ComputeInverseKinematics(i, leg_xyz) # [TODO][x]
 
     # Add joint PD contribution to tau for leg i (Equation 4)
-    tau += np.zeros(3) # [TODO] 
+    q_des = np.array(xs, 0, zs)
+    q_dot_des = np.zeros(3)
+    tau += kp * (q_des - q) + Kd * (q_dot_des - dq) # [TODO][x]
 
     # add Cartesian PD contribution
     if ADD_CARTESIAN_PD:
