@@ -163,8 +163,8 @@ class HopfNetwork():
 
     # scale x by step length
     if not self.use_RL:
-      # use des step len, fixed # [TODO][x]
-      x *= self._des_step_len
+      # use des step len, fixed # [TODO][ ]
+      x *= self._des_step_len # [FIXME] Lukas, why did you do this? /Lukas
       return x, z
     else:
       # RL uses amplitude to set max step length
@@ -199,13 +199,6 @@ class HopfNetwork():
       r_dot = self._alpha*(self._mu-r**2)*r
       # determine whether oscillator i is in swing or stance phase to set natural frequency omega_swing or omega_stance (see Section 3)
       theta_dot = 0 # [TODO][x]
-      ''' [NOTE] Changed this part to use helper function. Saving it just in case
-        theta_principal_angle = theta % (2*np.pi)
-        if 0 <= theta_principal_angle <= np.pi:
-          omega_i = self._omega_swing
-        else:
-          omega_i = self._omega_stance
-      '''
       omega_i = self.principal_angle(theta)
       # loop through other oscillators to add coupling (Equation 7)
       if self._couple:
