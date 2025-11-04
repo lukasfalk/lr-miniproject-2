@@ -106,22 +106,22 @@ class HopfNetwork():
       [0, np.pi, np.pi, 0]
     ])
     self.PHI_walk = np.array([
-      [0, np.pi, 0, np.pi],
-      [-np.pi, 0, -np.pi, 0],
-      [0, np.pi, 0, np.pi],
-      [-np.pi, 0, -np.pi, 0]
+      [0, -np.pi, -np.pi/2, np.pi/2],
+      [np.pi, 0, np.pi/2, 3*np.pi/2],
+      [np.pi/2, -np.pi/2, 0, np.pi],
+      [-np.pi/2, 3*np.pi/2, -np.pi, 0]
     ])
     self.PHI_bound = np.array([
-      [0, 0, np.pi, np.pi],
-      [0, 0, np.pi, np.pi],
-      [-np.pi, -np.pi, 0, 0],
-      [-np.pi, -np.pi, 0, 0]
+      [0, 0, -np.pi, -np.pi],
+      [0, 0, -np.pi, -np.pi],
+      [np.pi, np.pi, 0, 0],
+      [np.pi, np.pi, 0, 0]
     ])
     self.PHI_pace = np.array([
-      [0, np.pi/2, 3*np.pi/2, np.pi],
-      [3*np.pi/2, 0, np.pi/2, np.pi],
-      [np.pi/2, 3*np.pi/2, 0, np.pi],
-      [np.pi, np.pi/2, 3*np.pi/2, 0]
+      [0, -np.pi, 0, -np.pi],
+      [np.pi, 0, np.pi, 0],
+      [0, -np.pi, 0, -np.pi],
+      [np.pi, 0, np.pi, 0]
     ])
 
     gait = gait.upper()
