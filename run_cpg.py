@@ -123,7 +123,7 @@ for j in range(TEST_STEPS):
       # Calculate torque contribution from Cartesian PD (Equation 5) [Make sure you are using matrix multiplications]
       # [TODO][x]
       vel_des = np.zeros(3)
-      tau += J.T @ (kp @ (pos_des - pos) + kd @ (vel_des - vel))
+      tau += J.T @ (kp * (pos_des - pos) + kd * (vel_des - vel))
       
 
     # Set tau for legi in action vector
