@@ -145,8 +145,8 @@ class HopfNetwork():
       self._integrate_hopf_equations_rl()
     
     # map CPG variables to Cartesian foot xz positions (Equations 8, 9) 
-    x = np.zeros(4) # [TODO]
-    z = np.zeros(4) # [TODO]
+    x = np.zeros(4) # [TODO][x]
+    z = np.zeros(4) # [TODO][x]
     
     #implementation of x and z
     N_LEGS = 4
@@ -154,22 +154,33 @@ class HopfNetwork():
     theta_i = self.X[1, i]
     for i in range(N_LEGS):
       #equation 8
-      x[i]=-self.r_i*np.cos(theta_i)
+      x[i] = -self.r_i*np.cos(theta_i)
       #equation 9
       if np.sin(theta_i) > 1:
-        z[i]=-self._robot_height+self._ground_clearance*np.sin(theta_i)
+        z[i] = -self._robot_height+self._ground_clearance*np.sin(theta_i)
       else:
-        z[i]=-self._robot_height+self._ground_penetration*np.sin(theta_i)
+        z[i] = -self._robot_height+self._ground_penetration*np.sin(theta_i)
 
     # scale x by step length
     if not self.use_RL:
-      # use des step len, fixed # [TODO]
-      x = x * self._des_step_len
+      # use des step len, fixed # [TODO][x]
+      x *= self._des_step_len
       return x, z
     else:
       # RL uses amplitude to set max step length
       r = np.clip(self.X[0,:],MU_LOW,MU_UPP) 
       return -self._max_step_len_rl * (r - MU_LOW) * np.cos(self.X[1,:]), z
+
+  def principal_angle(self, angle: float) -> float:
+      '''
+      Convert angle to principal angle between 0 and 2pi
+      '''
+      principal_angle = angle % (2*np.pi)
+      if 0 <= principal_angle <= np.pi:
+        omega = self._omega_swing
+      else:
+        omega = self._omega_stance
+      return omega
 
   def _integrate_hopf_equations(self):
     """ Hopf polar equations and integration. Use equations 6 and 7. """
@@ -184,18 +195,21 @@ class HopfNetwork():
       #r, theta = 0, 0 # [TODO]
       r, theta = X[:, i]
       # compute r_dot (Equation 6)
-      #r_dot = 0 # [TODO]
+      #r_dot = 0 # [TODO][x]
       r_dot = self._alpha*(self._mu-r**2)*r
       # determine whether oscillator i is in swing or stance phase to set natural frequency omega_swing or omega_stance (see Section 3)
-      theta_dot = 0 # [TODO]
-      theta_principal_angle = theta % (2*np.pi)
-      if 0 <= theta_principal_angle <= np.pi:
-        omega_i = self._omega_swing
-      else:
-        omega_i = self._omega_stance
+      theta_dot = 0 # [TODO][x]
+      ''' [NOTE] Changed this part to use helper function. Saving it just in case
+        theta_principal_angle = theta % (2*np.pi)
+        if 0 <= theta_principal_angle <= np.pi:
+          omega_i = self._omega_swing
+        else:
+          omega_i = self._omega_stance
+      '''
+      omega_i = self.principal_angle(theta)
       # loop through other oscillators to add coupling (Equation 7)
       if self._couple:
-        theta_dot += omega_i # [TODO]
+        theta_dot += omega_i # [TODO][x]
         for j in range(4):
           if i != j:
             theta_dot += X[0, j]*self._coupling_strength*np.sin(X[1,j]-theta-self.PHI[i,j])
@@ -205,7 +219,7 @@ class HopfNetwork():
       X_dot[:,i] = [r_dot, theta_dot]
 
     # integrate 
-    #self.X = np.zeros((2,4)) # [TODO]
+    #self.X = np.zeros((2,4)) # [TODO][x]
     self.X += X + (X_dot_prev+X_dot)*self._dt/2
     self.X_dot = X_dot
     # mod phase variables to keep between 0 and 2pi
@@ -253,9 +267,15 @@ class HopfNetwork():
       # get r_i, theta_i from X
       r, theta = X[:,i]
       # amplitude (use mu from RL, i.e. self._mu_rl[i])
-      r_dot = 0  # [TODO]
+      r_dot = self._alpha*(self._mu_rl[i] - r**2)*r  # [TODO][x]
       # phase (use omega from RL, i.e. self._omega_rl[i])
-      theta_dot = 0 # [TODO]
+      theta_dot = 0 # [TODO][x]
+      # loop through other oscillators to add coupling (Equation 7)
+      if self._couple:
+        theta_dot += self._omega_rl[i]
+        for j in range(4):
+          if i != j:
+            theta_dot += X[0, j]*self._coupling_strength*np.sin(X[1, j]-theta-self.PHI[i, j])
 
       X_dot[:,i] = [r_dot, theta_dot]
 
