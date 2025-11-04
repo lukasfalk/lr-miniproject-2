@@ -150,11 +150,11 @@ class HopfNetwork():
     
     #implementation of x and z
     N_LEGS = 4
-    r_i = self.X[0, i]
-    theta_i = self.X[1, i]
     for i in range(N_LEGS):
+      r_i = self.X[0, i]
+      theta_i = self.X[1, i]
       #equation 8
-      x[i] = -self.r_i*np.cos(theta_i)
+      x[i] = -self._des_step_len*r_i*np.cos(theta_i)
       #equation 9
       if np.sin(theta_i) > 1:
         z[i] = -self._robot_height+self._ground_clearance*np.sin(theta_i)
