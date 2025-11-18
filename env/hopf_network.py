@@ -156,7 +156,7 @@ class HopfNetwork():
       #equation 8
       x[i] = -self._des_step_len*r_i*np.cos(theta_i)
       #equation 9
-      if np.sin(theta_i) > 1:
+      if np.sin(theta_i) > 0:
         z[i] = -self._robot_height+self._ground_clearance*np.sin(theta_i)
       else:
         z[i] = -self._robot_height+self._ground_penetration*np.sin(theta_i)

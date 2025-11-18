@@ -67,6 +67,7 @@ TEST_STEPS = int(10 / (TIME_STEP))
 t = np.arange(TEST_STEPS)*TIME_STEP
 
 # [TODO][ ] initialize data structures to save CPG and robot states
+cpg_states = np.zeros((4, 4, TEST_STEPS)) # plot for (r, theta, r_dot, theta_dot) for each leg
 
 ############## Sample Gains
 # joint PD gains
@@ -96,13 +97,13 @@ for j in range(TEST_STEPS):
     tau = np.zeros(3)
 
     # get desired foot i pos (xi, yi, zi) in leg frame
-    leg_xyz = np.array([xs[i], sideSign[i] * foot_y, zs[i]])
+    leg_xyz_des = np.array([xs[i], sideSign[i] * foot_y, zs[i]])
 
     # call inverse kinematics to get corresponding joint angles (see ComputeInverseKinematics() in quadruped.py)
-    leg_q = env.robot.ComputeInverseKinematics(i, leg_xyz) # [TODO][x]
+    leg_q_des = env.robot.ComputeInverseKinematics(i, leg_xyz_des) # [TODO][x]
 
     # Add joint PD contribution to tau for leg i (Equation 4)
-    leg_q_des = np.array((xs[i], 0, zs[i]))
+    # leg_q_des = np.array((xs[i], 0, zs[i]))
     dq_des = np.zeros(3) # We want the foot to stand still
     tau += kp @ (leg_q_des - q[i]) + kd @ (dq_des - dq[i]) # [TODO][x]
 
@@ -114,7 +115,7 @@ for j in range(TEST_STEPS):
 
       # Get current Jacobian and foot position in leg frame (see ComputeJacobianAndPosition() in quadruped.py)
       # [TODO][x]
-      J, pos = env.robot.ComputeJacobianAndPosition(i, leg_q)
+      J, pos = env.robot.ComputeJacobianAndPosition(i, q[i])
 
       # Get current foot velocity in leg frame (Equation 2)
       # [TODO][x]
@@ -133,14 +134,40 @@ for j in range(TEST_STEPS):
   env.step(action) 
 
   # [TODO][ ] save any CPG or robot states
+  cpg_states[:,0,j] = cpg.get_r()
+  cpg_states[:,1,j] = cpg.get_theta()
+  cpg_states[:,2,j] = cpg.get_dr()
+  cpg_states[:,3,j] = cpg.get_dtheta()
 
 ##################################################### 
 # PLOTS
 #####################################################
 # [TODO][ ] Create your plots
 
-# example
-# fig = plt.figure()
-# plt.plot(t,joint_pos[1,:], label='FR thigh')
-# plt.legend()
-# plt.show()
+fig, axs = plt.subplots(4, 1, figsize=(10, 12), sharex=True)
+fig.suptitle("CPG States per Leg")
+
+for leg in range(4):
+    ax = axs[leg]
+
+    # Left axis: amplitude r
+    ax.plot(t, cpg_states[leg, 0, :], label="r (amplitude)")
+    ax.set_ylabel(f"Leg {leg}  |  r", color="tab:blue")
+    ax.tick_params(axis='y', labelcolor="tab:blue")
+
+    # Right axis: theta
+    ax2 = ax.twinx()
+    ax2.plot(t, cpg_states[leg, 1, :], color="tab:red", label="\u03b8 (angle)")
+    ax2.set_ylabel("\u03b8", color="tab:red")
+    ax2.tick_params(axis='y', labelcolor="tab:red")
+
+    # Optional: also plot r_dot and theta_dot
+    # ax.plot(t, cpg_states[leg, 2, :], '--', color="tab:cyan", label="r_dot")
+    # ax2.plot(t, cpg_states[leg, 3, :], '--', color="tab:orange", label="theta_dot")
+
+    ax.grid(True)
+
+axs[-1].set_xlabel("Time [s]")
+
+plt.tight_layout(rect=[0, 0, 1, 0.97])
+plt.show()
