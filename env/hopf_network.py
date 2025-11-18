@@ -157,6 +157,8 @@ class HopfNetwork():
       x[i] = -r_i*np.cos(theta_i) # Exclude step_len multiplication because you should only do that when not using RL (see below)
       #equation 9
       if np.sin(theta_i) > 0:
+        z[i] = -self._robot_height+self._ground_clearance*np.sin(theta_i)
+      if np.sin(theta_i) > 0:
         z[i] = -self._robot_height + (self._ground_clearance*np.sin(theta_i))
       else:
         z[i] = -self._robot_height + (self._ground_penetration*np.sin(theta_i))
