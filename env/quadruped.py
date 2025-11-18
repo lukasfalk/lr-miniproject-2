@@ -381,7 +381,7 @@ class Quadruped(object):
 
     return J, pos
 
-  def ComputeInverseKinematics(self,legID, xyz_coord):
+  def ComputeInverseKinematics(self, legID, xyz_coord):
     """ Get joint angles for leg legID with desired xyz position in leg frame. 
 
     Leg 0: FR; Leg 1: FL; Leg 2: RR ; Leg 3: RL;

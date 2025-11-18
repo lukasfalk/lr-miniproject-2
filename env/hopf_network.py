@@ -163,8 +163,8 @@ class HopfNetwork():
 
     # scale x by step length
     if not self.use_RL:
-      # use des step len, fixed # [TODO][x]
-      x *= self._des_step_len
+      # use des step len, fixed # [TODO][ ]
+      x *= self._des_step_len # [FIXME] Lukas, why did you do this? /Lukas
       return x, z
     else:
       # RL uses amplitude to set max step length
