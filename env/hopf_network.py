@@ -154,17 +154,17 @@ class HopfNetwork():
       r_i = self.X[0, i] # Amplitude in row 0, phase in row 1
       theta_i = self.X[1, i]
       #equation 8
-      x[i] = -self._des_step_len*r_i*np.cos(theta_i)
+      x[i] = -r_i*np.cos(theta_i) # Exclude step_len multiplication because you should only do that when not using RL (see below)
       #equation 9
       if np.sin(theta_i) > 0:
-        z[i] = -self._robot_height+self._ground_clearance*np.sin(theta_i)
+        z[i] = -self._robot_height + (self._ground_clearance*np.sin(theta_i))
       else:
-        z[i] = -self._robot_height+self._ground_penetration*np.sin(theta_i)
+        z[i] = -self._robot_height + (self._ground_penetration*np.sin(theta_i))
 
     # scale x by step length
     if not self.use_RL:
-      # use des step len, fixed # [TODO][ ]
-      x *= self._des_step_len # [FIXME] Lukas, why did you do this? /Lukas
+      # use des step len, fixed
+      x *= self._des_step_len # Multiplying it here and not in eq 8 so RL can have control over varying it
       return x, z
     else:
       # RL uses amplitude to set max step length
