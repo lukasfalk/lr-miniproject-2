@@ -57,17 +57,21 @@ env = QuadrupedGymEnv(render=True,              # visualize
                     action_repeat=1,
                     motor_control_mode="TORQUE",
                     add_noise=False,    # start in ideal conditions
-                    # record_video=True
+                    record_video=True
                     )
 
 # initialize Hopf Network, supply gait
 cpg = HopfNetwork(time_step=TIME_STEP)
 
-TEST_STEPS = int(10 / (TIME_STEP))
+TEST_STEPS = int(2.5 / (TIME_STEP))
 t = np.arange(TEST_STEPS)*TIME_STEP
 
-# [TODO][ ] initialize data structures to save CPG and robot states
+# [TODO][x] initialize data structures to save CPG and robot states
 cpg_states = np.zeros((4, 4, TEST_STEPS)) # plot for (r, theta, r_dot, theta_dot) for each leg
+feet_positions = np.zeros((4, 3, TEST_STEPS)) # foot positions for each leg (x, y, z)
+feet_desired_positions = np.zeros((4, 3, TEST_STEPS)) # desired foot positions for each leg (x, y, z)
+joint_angles = np.zeros((4, 3, TEST_STEPS)) # joint angles for each leg (hip, thigh, knee)
+joint_angles_des = np.zeros((4, 3, TEST_STEPS)) # desired joint angles for each leg (hip, thigh, knee)
 
 ############## Sample Gains
 # joint PD gains
@@ -75,8 +79,8 @@ kp = np.array([100,100,100])
 kd = np.array([2,2,2])
 
 # Cartesian PD gains
-kpCartesian = np.diag([500]*3)
-kdCartesian = np.diag([20]*3)
+kpCartesian = np.diag([1200]*3)
+kdCartesian = np.diag([40]*3)
 
 for j in range(TEST_STEPS):
   # initialize torque array to send to motors
@@ -124,8 +128,14 @@ for j in range(TEST_STEPS):
       # Calculate torque contribution from Cartesian PD (Equation 5) [Make sure you are using matrix multiplications]
       # [TODO][x]
       vel_des = np.zeros(3)
-      tau += J.T @ (kp * (pos_des - pos) + kd * (vel_des - vel))
+      tau += J.T @ (kpCartesian @ (pos_des - pos) + kdCartesian @ (vel_des - vel))
       
+    feet_positions[i,:,j] = pos
+    feet_desired_positions[i,:,j] = pos_des
+
+    joint_angles[i,:,j] = q[i]
+    joint_angles_des[i,:,j] = leg_q_des
+
 
     # Set tau for legi in action vector
     action[3*i:3*i+3] = tau
@@ -133,41 +143,94 @@ for j in range(TEST_STEPS):
   # send torques to robot and simulate TIME_STEP seconds 
   env.step(action) 
 
-  # [TODO][ ] save any CPG or robot states
+  # [TODO][x] save any CPG or robot states
   cpg_states[:,0,j] = cpg.get_r()
   cpg_states[:,1,j] = cpg.get_theta()
   cpg_states[:,2,j] = cpg.get_dr()
   cpg_states[:,3,j] = cpg.get_dtheta()
 
-##################################################### 
-# PLOTS
-#####################################################
-# [TODO][ ] Create your plots
+# [TODO][x] Create your plots
+leg = 0  # choose which leg to plot
 
-fig, axs = plt.subplots(4, 1, figsize=(10, 12), sharex=True)
-fig.suptitle("CPG States per Leg")
+### CPG STATE PLOTS
+r         = cpg_states[leg, 0, :]
+theta     = cpg_states[leg, 1, :]
+r_dot     = cpg_states[leg, 2, :]
+theta_dot = cpg_states[leg, 3, :]
 
-for leg in range(4):
-    ax = axs[leg]
+# Optional: wrap theta into [-pi, pi] for readability
+theta = (theta + np.pi) % (2*np.pi) - np.pi
 
-    # Left axis: amplitude r
-    ax.plot(t, cpg_states[leg, 0, :], label="r (amplitude)")
-    ax.set_ylabel(f"Leg {leg}  |  r", color="tab:blue")
-    ax.tick_params(axis='y', labelcolor="tab:blue")
+fig, axs = plt.subplots(4, 1, figsize=(14, 8), sharex=True)
+fig.suptitle(f"CPG States for Leg {leg}", fontsize=16)
 
-    # Right axis: theta
-    ax2 = ax.twinx()
-    ax2.plot(t, cpg_states[leg, 1, :], color="tab:red", label="\u03b8 (angle)")
-    ax2.set_ylabel("\u03b8", color="tab:red")
-    ax2.tick_params(axis='y', labelcolor="tab:red")
+# r
+axs[0].plot(t, r, color="tab:blue", linewidth=1.5)
+axs[0].set_ylabel(r"$r$")
+axs[0].grid(True, alpha=0.3)
 
-    # Optional: also plot r_dot and theta_dot
-    # ax.plot(t, cpg_states[leg, 2, :], '--', color="tab:cyan", label="r_dot")
-    # ax2.plot(t, cpg_states[leg, 3, :], '--', color="tab:orange", label="theta_dot")
+# theta
+axs[1].plot(t, theta, color="tab:red", linewidth=1.5)
+axs[1].set_ylabel(r"$\theta$ [rad]")
+axs[1].grid(True, alpha=0.3)
+axs[1].set_ylim([-np.pi, np.pi])
 
-    ax.grid(True)
+# r_dot
+axs[2].plot(t, r_dot, color="tab:green", linewidth=1.5)
+axs[2].set_ylabel(r"$\dot{r}$")
+axs[2].grid(True, alpha=0.3)
+
+# theta_dot
+axs[3].plot(t, theta_dot, color="tab:purple", linewidth=1.5)
+axs[3].set_ylabel(r'$\dot{\theta}$ [rad/s]')
+axs[3].set_xlabel("Time [s]")
+axs[3].grid(True, alpha=0.3)
+
+plt.tight_layout(rect=[0, 0, 1, 0.95])
+plt.show()
+
+### FOOT POSITION TRACKING PLOT
+pos     = feet_positions[leg, :, :]          # shape (3, TEST_STEPS)
+pos_des = feet_desired_positions[leg, :, :]  # shape (3, TEST_STEPS)
+
+labels = ["x", "y", "z"]
+colors = ["tab:blue", "tab:green", "tab:red"]
+
+fig, axs = plt.subplots(3, 1, figsize=(14, 6), sharex=True)
+fig.suptitle(f"Foot Position Tracking for Leg {leg}", fontsize=16)
+
+for k in range(3):
+    axs[k].plot(t, pos[k],     linewidth=1.5, color=colors[k], label=f"{labels[k]} actual")
+    axs[k].plot(t, pos_des[k], linewidth=1.2, color="black", linestyle="--", label=f"{labels[k]} desired")
+
+    axs[k].set_ylabel(f"{labels[k]} [m]")
+    axs[k].grid(True, alpha=0.3)
+    axs[k].legend(loc="upper right")
 
 axs[-1].set_xlabel("Time [s]")
 
-plt.tight_layout(rect=[0, 0, 1, 0.97])
+plt.tight_layout(rect=[0, 0, 1, 0.95])
+plt.show()
+
+### JOINT ANGLE TRACKING PLOT
+q     = joint_angles[leg, :, :]       # shape (3, TEST_STEPS)
+q_des = joint_angles_des[leg, :, :]   # shape (3, TEST_STEPS)
+
+joint_labels = ["Hip", "Thigh", "Calf"]
+colors = ["tab:blue", "tab:orange", "tab:green"]
+
+fig, axs = plt.subplots(3, 1, figsize=(14, 6), sharex=True)
+fig.suptitle(f"Joint Angle Tracking for Leg {leg}", fontsize=16)
+
+for k in range(3):
+    axs[k].plot(t, q[k],     linewidth=1.5, color=colors[k], label=f"{joint_labels[k]} actual")
+    axs[k].plot(t, q_des[k], linewidth=1.2, color="black", linestyle="--", label=f"{joint_labels[k]} desired")
+
+    axs[k].set_ylabel(f"{joint_labels[k]} [rad]")
+    axs[k].grid(True, alpha=0.3)
+    axs[k].legend(loc="upper right")
+
+axs[-1].set_xlabel("Time [s]")
+
+plt.tight_layout(rect=[0, 0, 1, 0.95])
 plt.show()
