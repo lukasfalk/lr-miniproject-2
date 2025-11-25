@@ -157,8 +157,6 @@ class HopfNetwork():
       x[i] = -r_i*np.cos(theta_i) # Exclude step_len multiplication because you should only do that when not using RL (see below)
       #equation 9
       if np.sin(theta_i) > 0:
-        z[i] = -self._robot_height+self._ground_clearance*np.sin(theta_i)
-      if np.sin(theta_i) > 0:
         z[i] = -self._robot_height + (self._ground_clearance*np.sin(theta_i))
       else:
         z[i] = -self._robot_height + (self._ground_penetration*np.sin(theta_i))
@@ -206,11 +204,14 @@ class HopfNetwork():
         for j in range(4):
           theta_dot += X[0, j] * self._coupling_strength * np.sin(X[1,j]- theta - self.PHI[i,j]) # [TODO] - Is the coupling strength constant between oscillators?
         
+          theta_dot += X[0, j]*self._coupling_strength*np.sin(X[1,j]-theta-self.PHI[i,j])
+        
+
       # set X_dot[:,i]
       X_dot[:,i] = [r_dot, theta_dot]
 
     # integrate 
-    self.X += X + (X_dot_prev+X_dot)*self._dt/2
+    self.X = X + (X_dot_prev+X_dot)*self._dt/2
     self.X_dot = X_dot
     # mod phase variables to keep between 0 and 2pi
     self.X[1,:] = self.X[1,:] % (2*np.pi)
