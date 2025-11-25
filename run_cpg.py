@@ -66,8 +66,8 @@ cpg = HopfNetwork(time_step=TIME_STEP)
 TEST_STEPS = int(10 / (TIME_STEP))
 t = np.arange(TEST_STEPS)*TIME_STEP
 
-# [TODO][ ] initialize data structures to save CPG and robot states
-cpg_states = np.zeros((4, 4, TEST_STEPS)) # plot for (r, theta, r_dot, theta_dot) for each leg
+# initialize data structures to save CPG and robot states
+cpg_states = np.zeros((4, 4, TEST_STEPS)) # plot for (r, theta, r_dot, theta_dot) for each leg [info, legId, timeStep]
 
 ############## Sample Gains
 # joint PD gains
@@ -85,7 +85,6 @@ for j in range(TEST_STEPS):
   # get desired foot positions from CPG 
   xs, zs = cpg.update()
 
-  # [TODO] get current motor angles and velocities for joint PD, see GetMotorAngles(), GetMotorVelocities() in quadruped.py
   q = env.robot.GetMotorAngles()
   dq = env.robot.GetMotorVelocities()
   q = np.reshape(q, (4,3)) # reshape to leg x joint
@@ -100,29 +99,24 @@ for j in range(TEST_STEPS):
     leg_xyz_des = np.array([xs[i], sideSign[i] * foot_y, zs[i]])
 
     # call inverse kinematics to get corresponding joint angles (see ComputeInverseKinematics() in quadruped.py)
-    leg_q_des = env.robot.ComputeInverseKinematics(i, leg_xyz_des) # [TODO][x]
+    leg_q_des = env.robot.ComputeInverseKinematics(i, leg_xyz_des)
 
     # Add joint PD contribution to tau for leg i (Equation 4)
-    # leg_q_des = np.array((xs[i], 0, zs[i]))
     dq_des = np.zeros(3) # We want the foot to stand still
-    tau += kp @ (leg_q_des - q[i]) + kd @ (dq_des - dq[i]) # [TODO][x]
+    tau += kp @ (leg_q_des - q[i]) + kd @ (dq_des - dq[i])
 
     # add Cartesian PD contribution
     if ADD_CARTESIAN_PD:
       # Get desired xyz position in leg frame (use ComputeJacobianAndPosition with the joint angles you just found above)
-      # [TODO][x]
       _, pos_des = env.robot.ComputeJacobianAndPosition(i, leg_q_des)
 
       # Get current Jacobian and foot position in leg frame (see ComputeJacobianAndPosition() in quadruped.py)
-      # [TODO][x]
       J, pos = env.robot.ComputeJacobianAndPosition(i, q[i])
 
       # Get current foot velocity in leg frame (Equation 2)
-      # [TODO][x]
       vel = J @ dq[i]
 
       # Calculate torque contribution from Cartesian PD (Equation 5) [Make sure you are using matrix multiplications]
-      # [TODO][x]
       vel_des = np.zeros(3)
       tau += J.T @ (kp * (pos_des - pos) + kd * (vel_des - vel))
       
