@@ -171,10 +171,9 @@ class HopfNetwork():
       r = np.clip(self.X[0,:],MU_LOW,MU_UPP) 
       return -self._max_step_len_rl * (r - MU_LOW) * np.cos(self.X[1,:]), z
 
-  def principal_angle(self, angle: float) -> float:
+  def get_nat_freq_from_phase(self, angle: float) -> float:
       '''
-      Convert angle to principal angle between 0 and 2pi.
-      Then return frequency for swing or stance phase.
+      Returns the natural frequency based on whether the phase is in swing or stance.
       '''
       principal_angle = angle % (2*np.pi)
       if 0 <= principal_angle <= np.pi:
@@ -198,12 +197,13 @@ class HopfNetwork():
       # compute r_dot (Equation 6)
       r_dot = self._alpha*(self._mu-r**2)*r
       # determine whether oscillator i is in swing or stance phase to set natural frequency omega_swing or omega_stance (see Section 3)
-      theta_dot = 0 # [TODO][x]
-      omega_i = self.principal_angle(theta)
+      omega_i = self.get_nat_freq_from_phase(theta)
       # loop through other oscillators to add coupling (Equation 7)
       if self._couple:
-        theta_dot += omega_i # [TODO][x]
+        theta_dot += omega_i
         for j in range(4):
+          theta_dot += X[0, j] * self._coupling_strength * np.sin(X[1,j]- theta - self.PHI[i,j]) # [TODO] - Is the coupling strength constant between oscillators?
+        
           theta_dot += X[0, j]*self._coupling_strength*np.sin(X[1,j]-theta-self.PHI[i,j])
         
 
@@ -211,7 +211,6 @@ class HopfNetwork():
       X_dot[:,i] = [r_dot, theta_dot]
 
     # integrate 
-    #self.X = np.zeros((2,4)) # [TODO][x]
     self.X = X + (X_dot_prev+X_dot)*self._dt/2
     self.X_dot = X_dot
     # mod phase variables to keep between 0 and 2pi
