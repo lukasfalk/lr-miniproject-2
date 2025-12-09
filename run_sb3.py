@@ -51,14 +51,14 @@ from env.quadruped_gym_env import QuadrupedGymEnv
 
 LEARNING_ALG = "PPO" # or "SAC"
 LOAD_NN = False # if you want to initialize training with a previous model 
-NUM_ENVS = 1    # how many pybullet environments to create for data collection
+NUM_ENVS = 64    # how many pybullet environments to create for data collection
 USE_GPU = False # make sure to install all necessary drivers 
 
 # after implementing, you will want to test how well the agent learns with your MDP: 
-# env_configs = {"motor_control_mode":"CPG",
-#                "task_env": "FWD_LOCOMOTION", #  "LR_COURSE_TASK",
-#                "observation_space_mode": "LR_COURSE_OBS"}
-env_configs = {}
+env_configs = {"motor_control_mode":"TORQUE",
+               "task_env": "FWD_LOCOMOTION", #  "LR_COURSE_TASK",
+               "observation_space_mode": "LR_COURSE_OBS"}
+# env_configs = {}
 
 if USE_GPU and LEARNING_ALG=="SAC":
     gpu_arg = "auto" 
@@ -94,10 +94,10 @@ if LOAD_NN:
 policy_kwargs = dict(net_arch=[256,256]) # act_fun=tf.nn.tanh
 
 # What are these hyperparameters? Check here: https://stable-baselines3.readthedocs.io/en/master/modules/ppo.html
-n_steps = 4096 
+n_steps = 226 #4096 - just set n_steps per env so removed n_steps division in ppo config
 learning_rate = lambda f: 1e-4 
-ppo_config = {  "gamma":0.99, 
-                "n_steps": int(n_steps/NUM_ENVS), 
+ppo_config = {  "gamma":0.99,
+                "n_steps": int(n_steps), # "n_steps": int(n_steps/NUM_ENVS)
                 "ent_coef":0.0, 
                 "learning_rate":learning_rate, 
                 "vf_coef":0.5,

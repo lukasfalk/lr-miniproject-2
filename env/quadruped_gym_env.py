@@ -375,7 +375,7 @@ class QuadrupedGymEnv(gym.Env):
     
     return 0
 
-  def _reward(self):
+  def _reward(self): # TODO - here is where we set the reward funciton depending on the TASK_EVN
     """ Get reward depending on task"""
     if self._TASK_ENV == "FWD_LOCOMOTION":
       return self._reward_fwd_locomotion()
@@ -592,7 +592,7 @@ class QuadrupedGymEnv(gym.Env):
 
       if self._terrain is not None:
         if self._terrain == "SLOPES":
-          self.add_slopes(pitch=0.2)
+          self.add_slopes(pitch=0.2) # TODO - can change this to use a random var so that more robust
         elif self._terrain == "STAIRS":
           self.add_stairs(num_stairs=12, stair_height=0.05, stair_width=0.25)
         elif self._terrain == "GAPS":
