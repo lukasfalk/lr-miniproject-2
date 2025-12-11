@@ -36,6 +36,7 @@ Check the documentation! https://stable-baselines3.readthedocs.io/en/master/
 # misc
 import os
 from datetime import datetime
+import tensorboard as tf
 
 # stable baselines 3
 from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
@@ -74,7 +75,9 @@ def main():
 
     # directory to save policies and normalization parameters
     SAVE_PATH = './logs/intermediate_models/'+ datetime.now().strftime("%m%d%y%H%M%S") + '/'
+    TB_LOG_DIR = "./logs/tensorboard/"
     os.makedirs(SAVE_PATH, exist_ok=True)
+    os.makedirs(TB_LOG_DIR, exist_ok=True)
 
     # checkpoint to save policy network periodically
     checkpoint_callback = CheckpointCallback(save_freq=30000, save_path=SAVE_PATH,name_prefix='rl_model', verbose=2)
@@ -109,7 +112,7 @@ def main():
                     "clip_range":0.2, 
                     "clip_range_vf":1,
                     "verbose":1, 
-                    "tensorboard_log":None, 
+                    "tensorboard_log": None,
                     "_init_setup_model":True, 
                     "policy_kwargs":policy_kwargs,
                     "device": gpu_arg}
@@ -125,7 +128,7 @@ def main():
                 "gradient_steps":1,
                 "learning_starts": 10000,
                 "verbose":1, 
-                "tensorboard_log":None,
+                "tensorboard_log": TB_LOG_DIR,
                 "policy_kwargs": policy_kwargs,
                 "seed":None, 
                 "device": gpu_arg}
