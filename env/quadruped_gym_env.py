@@ -250,7 +250,7 @@ class QuadrupedGymEnv(gym.Env):
       max_dtheta = np.ones(4) * 30.0
 
       observation_high = np.concatenate(
-          (max_rpy, max_v_body, max_r, max_theta, max_dr, max_dtheta)
+          (max_rpy, max_v_body)#, max_r, max_theta, max_dr, max_dtheta)
       ) + OBSERVATION_EPS
 
       observation_low = -observation_high
@@ -304,7 +304,7 @@ class QuadrupedGymEnv(gym.Env):
       theta = (theta + np.pi) % (2.0 * np.pi) - np.pi
 
       # final observation: [rpy(3), v_body(3), r(4), theta(4), dr(4), dtheta(4)] = 22 dims
-      self._observation = np.concatenate((base_rpy, v_body, r, theta, dr, dtheta))
+      self._observation = np.concatenate((base_rpy, v_body))#, r, theta, dr, dtheta))
 
     else:
       raise ValueError("observation space not defined or not intended")
