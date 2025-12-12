@@ -55,7 +55,7 @@ from utils.utils import plot_results
 from utils.file_utils import get_latest_model, load_all_results
 
 LEARNING_ALG = "PPO" #"SAC"
-interm_dir = "./logs/intermediate_models/"
+interm_dir = "./logs/intermediate_models/121225020524"
 # path to saved models, i.e. interm_dir + '102824115106'
 log_dir = interm_dir + ''
 
@@ -65,6 +65,10 @@ env_config = {}
 env_config['render'] = True
 env_config['record_video'] = False
 env_config['add_noise'] = False 
+
+env_config["motor_control_mode"] = "CPG"
+env_config["task_env"] = "LR_COURSE_TASK"
+env_config["observation_space_mode"] = "LR_COURSE_OBS"
 
 # get latest model and normalization stats, and plot 
 stats_path = os.path.join(log_dir, "vec_normalize.pkl")

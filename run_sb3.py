@@ -59,7 +59,7 @@ USE_GPU = False # make sure to install all necessary drivers
 # after implementing, you will want to test how well the agent learns with your MDP: 
 def main():
     env_configs = {"motor_control_mode":"CPG",
-                   "task_env": "FWD_LOCOMOTION", #  "LR_COURSE_TASK",
+                   "task_env": "LR_COURSE_TASK", #"FWD_LOCOMOTION", #  "LR_COURSE_TASK",
                    "observation_space_mode": "LR_COURSE_OBS"}
 
     if USE_GPU and LEARNING_ALG=="SAC":
@@ -112,7 +112,7 @@ def main():
                     "clip_range":0.2, 
                     "clip_range_vf":1,
                     "verbose":1, 
-                    "tensorboard_log": None,
+                    "tensorboard_log": TB_LOG_DIR,
                     "_init_setup_model":True, 
                     "policy_kwargs":policy_kwargs,
                     "device": gpu_arg}

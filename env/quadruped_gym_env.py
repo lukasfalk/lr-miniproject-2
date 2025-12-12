@@ -218,24 +218,48 @@ class QuadrupedGymEnv(gym.Env):
   def setupObservationSpace(self):
     """Set up observation space for RL. """
     if self._observation_space_mode == "DEFAULT":
-      observation_high = (np.concatenate((self._robot_config.UPPER_ANGLE_JOINT,
-                                         self._robot_config.VELOCITY_LIMITS,
-                                         np.array([1.0]*4))) +  OBSERVATION_EPS)
-      observation_low = (np.concatenate((self._robot_config.LOWER_ANGLE_JOINT,
-                                         -self._robot_config.VELOCITY_LIMITS,
-                                         np.array([-1.0]*4))) -  OBSERVATION_EPS)
+      observation_high = (np.concatenate((
+                            self._robot_config.UPPER_ANGLE_JOINT,
+                            self._robot_config.VELOCITY_LIMITS,
+                            np.array([1.0]*4))) + OBSERVATION_EPS)
+      observation_low  = (np.concatenate((
+                            self._robot_config.LOWER_ANGLE_JOINT,
+                            -self._robot_config.VELOCITY_LIMITS,
+                            np.array([-1.0]*4))) - OBSERVATION_EPS)
 
     elif self._observation_space_mode == "LR_COURSE_OBS":
-      # [TODO] Set observation upper and lower ranges. What are reasonable limits? 
-      # Note 50 is arbitrary below, you may have more or less
-      # If using CPG-RL, remember to include limits on these
-      observation_high = (np.zeros(50) + OBSERVATION_EPS)
-      observation_low = (np.zeros(50) -  OBSERVATION_EPS)
-    
+      # LR course obs: [rpy(3), v_body(3), r(4), theta(4), dr(4), dtheta(4)] = 22
+
+      # orientation bounds (rad)
+      max_rpy = np.array([np.pi/2, np.pi/2, np.pi])   # roll, pitch, yaw
+
+      # base linear velocity bounds (m/s) in body frame
+      # ~ +/- 3 m/s horizontally, +/- 1 m/s vertically
+      max_v_body = np.array([3.0, 3.0, 1.0])
+
+      # CPG amplitude r: µ is in about [1,2] in the paper; give margin up to 3. 
+      max_r = np.ones(4) * 3.0
+
+      # CPG phase theta in [-pi, pi]
+      max_theta = np.ones(4) * np.pi
+
+      # amplitude rate dr (arbitrary but reasonable bound)
+      max_dr = np.ones(4) * 10.0
+
+      # phase rate dtheta: in the paper ω ∈ [0, 4.5] Hz, so |θ̇| ≈ 2π * 4.5 ≈ 28.3 rad/s. 
+      max_dtheta = np.ones(4) * 30.0
+
+      observation_high = np.concatenate(
+          (max_rpy, max_v_body, max_r, max_theta, max_dr, max_dtheta)
+      ) + OBSERVATION_EPS
+
+      observation_low = -observation_high
+
     else:
       raise ValueError("observation space not defined or not intended")
 
     self.observation_space = spaces.Box(observation_low, observation_high, dtype=np.float32)
+
 
   def setupActionSpace(self):
     """ Set up action space for RL. """
@@ -252,21 +276,46 @@ class QuadrupedGymEnv(gym.Env):
   def _get_observation(self):
     """Get observation, depending on obs space selected. """
     if self._observation_space_mode == "DEFAULT":
-      self._observation = np.concatenate((self.robot.GetMotorAngles(), 
-                                          self.robot.GetMotorVelocities(),
-                                          self.robot.GetBaseOrientation() ))
+      self._observation = np.concatenate((
+          self.robot.GetMotorAngles(), 
+          self.robot.GetMotorVelocities(),
+          self.robot.GetBaseOrientation() ))
+
     elif self._observation_space_mode == "LR_COURSE_OBS":
-      # [TODO] Get observation from robot. What are reasonable measurements we could get on hardware?
-      # if using the CPG, you can include states with self._cpg.get_r(), for example
-      # 50 is arbitrary
-      self._observation = np.zeros(50)
+      # --- base orientation (roll, pitch, yaw) ---
+      base_rpy = np.array(self.robot.GetBaseOrientationRollPitchYaw())  # [3]
+
+      # --- base linear velocity (body frame) ---
+      v_world = np.array(self.robot.GetBaseLinearVelocity())            # [3]
+      # orientation as quaternion, then rotation matrix
+      quat = self.robot.GetBaseOrientation()
+      rot_mat = np.array(self._pybullet_client.getMatrixFromQuaternion(quat)).reshape(3, 3)
+      # body frame velocity: v_b = R^T * v_world
+      v_body = rot_mat.T @ v_world                                       # [3]
+
+      # --- CPG states (per leg) ---
+      # each of these should be shape (4,)
+      r      = np.array(self._cpg.get_r())
+      theta  = np.array(self._cpg.get_theta())
+      dr     = np.array(self._cpg.get_dr())
+      dtheta = np.array(self._cpg.get_dtheta())
+
+      # (optional) wrap theta into [-pi, pi] for numerical stability
+      theta = (theta + np.pi) % (2.0 * np.pi) - np.pi
+
+      # final observation: [rpy(3), v_body(3), r(4), theta(4), dr(4), dtheta(4)] = 22 dims
+      self._observation = np.concatenate((base_rpy, v_body, r, theta, dr, dtheta))
+
     else:
       raise ValueError("observation space not defined or not intended")
 
-    self._add_obs_noise = (np.random.normal(scale=self._observation_noise_stdev, size=self._observation.shape) *
-          self.observation_space.high)
-    return self._observation
+    self._add_obs_noise = (
+        np.random.normal(scale=self._observation_noise_stdev, size=self._observation.shape)
+        * self.observation_space.high
+    )
 
+    return self._observation
+  
   def _noisy_observation(self):
     self._get_observation()
     observation = np.array(self._observation)
@@ -370,10 +419,92 @@ class QuadrupedGymEnv(gym.Env):
     return max(reward,0) # keep rewards positive
     
   def _reward_lr_course(self):
-    """ Implement your reward function here. How will you improve upon the above? """
-    # [TODO] add your reward function. 
+    """
+    Reward function for the LR Course locomotion task.
+    Encourages:
+      - tracking a desired base velocity,
+      - stable orientation,
+      - minimizing energy consumption,
+      - smooth CPG modulation,
+      - low lateral drift.
+    """
+
+    # --------------------------------------------------------------
+    # 1) Velocity tracking reward (desired velocity chosen externally)
+    # --------------------------------------------------------------
+    # Example: sample desired forward velocity between 0.5 and 1.5 m/s
+    # You can also set self.desired_vel in run_sb3.py when constructing env
+    if not hasattr(self, "desired_velocity"):
+        # Default target speed: 1.0 m/s forward
+        desired_velocity = np.array([1.0, 0.0, 0.0])
+    else:
+        desired_velocity = self.desired_velocity
+
+    current_vel = np.array(self.robot.GetBaseLinearVelocity())
+
+    vel_error = current_vel - desired_velocity
+    vel_tracking_reward = np.exp(-1.0 * np.linalg.norm(vel_error))  # ∈ (0,1]
+
+
+    # --------------------------------------------------------------
+    # 2) Body orientation reward (penalize roll and pitch)
+    # --------------------------------------------------------------
+    roll, pitch, yaw = self.robot.GetBaseOrientationRollPitchYaw()
+
+    orientation_penalty = np.exp(-4.0 * (4*abs(roll) + abs(pitch)))  # good posture; Fredi added 4*
+
+
+    # --------------------------------------------------------------
+    # 3) Heading alignment (robot should face direction of movement)
+    # --------------------------------------------------------------
+    desired_heading = np.arctan2(desired_velocity[1], desired_velocity[0])
+    heading_error = abs(yaw - desired_heading)
+    heading_reward = np.exp(-1.5 * heading_error)
+
+
+    # --------------------------------------------------------------
+    # 4) Energy penalty (mechanical work)
+    # --------------------------------------------------------------
+    energy = 0
+    for tau, vel in zip(self._dt_motor_torques, self._dt_motor_velocities):
+        energy += np.abs(np.dot(tau, vel)) * self._time_step
+
+    energy_penalty = -0.005 * energy
+
+
+    # --------------------------------------------------------------
+    # 5) Lateral drift penalty (stay close to straight path)
+    # --------------------------------------------------------------
+    lat_pos = abs(self.robot.GetBasePosition()[1])
+    drift_penalty = -0.05 * lat_pos * 3 #Fredi added *3
+
+
+    # --------------------------------------------------------------
+    # 6) Smooth CPG penalty (discourage violent changes)
+    # --------------------------------------------------------------
+    dtheta = np.array(self._cpg.get_dtheta())
+    smooth_cpg_penalty = -0.001 * np.linalg.norm(dtheta)
     
-    return 0
+    # --------------------------------------------------------------
+    # 7) height penalty
+    # --------------------------------------------------------------
+    z = self.robot.GetBasePosition()[2]
+
+    # --------------------------------------------------------------
+    # Final weighted sum
+    # --------------------------------------------------------------
+    reward = (
+        1.0 * vel_tracking_reward +
+        0.5 * orientation_penalty +
+        0.3 * heading_reward +
+        energy_penalty +
+        drift_penalty +
+        smooth_cpg_penalty
+    )
+
+    # ensure non-negative reward
+    return max(reward, 0.0)
+
 
   def _reward(self): # TODO - here is where we set the reward funciton depending on the TASK_EVN
     """ Get reward depending on task"""
@@ -459,13 +590,16 @@ class QuadrupedGymEnv(gym.Env):
     # clip RL actions to be between -1 and 1 (standard RL technique)
     u = np.clip(actions,-1,1)
 
-    # scale omega to ranges, and set in CPG (range is an example)
+    # scale omega to ranges, and set in CPG (range is an example) # [TODO]: set the scaling depending on what you want to achive
+  
     omega = self._scale_helper( u[0:4], 5, 4.5*2*np.pi)
+
     self._cpg.set_omega_rl(omega)
 
     # scale mu to ranges, and set in CPG (squared since we converge to the sqrt in the CPG amplitude)
-    mus = self._scale_helper( u[4:8], MU_LOW**2, MU_UPP**2)
+    mus = self._scale_helper( u[4:8], MU_LOW*2, MU_UPP*2)
     self._cpg.set_mu_rl(mus)
+
 
     # integrate CPG, get mapping to foot positions
     xs,zs = self._cpg.update()
@@ -475,9 +609,14 @@ class QuadrupedGymEnv(gym.Env):
     sideSign = np.array([-1, 1, -1, 1]) # get correct hip sign (body right is negative)
     
     # get motor kp and kd gains (can be modified)
-    kp = self._robot_config.MOTOR_KP # careful of size!
-    kd = self._robot_config.MOTOR_KD
+    # kp = self._robot_config.MOTOR_KP # careful of size!
+    # kd = self._robot_config.MOTOR_KD
+    kp = [100.0, 100.0, 100.0]
+    kd = [2.0, 2.0, 2.0]
     
+    kpCartesian = np.diag([300,300,300])
+    kdCartesian = np.diag([12,12,12])
+   
     # get current motor velocities
     q = self.robot.GetMotorAngles()
     dq = self.robot.GetMotorVelocities()
@@ -490,14 +629,33 @@ class QuadrupedGymEnv(gym.Env):
       y = sideSign[i] * foot_y # careful of sign
       z = zs[i]
 
+      # ===== PD JOINT CONTROLLER =====
       # call inverse kinematics to get corresponding joint angles
-      q_des = np.zeros(3) # [TODO]
-      
-      # Add joint PD contribution to tau
-      tau = np.zeros(3) # [TODO] 
+      q_des = self.robot.ComputeInverseKinematics(i, np.array([x,y,z]))
 
-      # add Cartesian PD contribution (as you wish)
-      # tau +=
+      # Add joint PD contribution to tau
+      # tau = kp[3*i:3*i+3] * (q_des - q[3*i:3*i+3]) - kd[3*i:3*i+3] * dq[3*i:3*i+3]
+      tau = kp * (q_des - q[3*i:3*i+3]) - kd * dq[3*i:3*i+3]
+
+      # ===== PD CARTESIAN CONTROLLER =====
+      
+      # add Cartesian PD contribution (if we want)
+      # get current foot position
+      J_foot_i, foot_pos_i = self.robot.ComputeJacobianAndPosition(i)
+
+      # desired foot position i (from RL above)
+      pd = np.array([x, y, z])
+      
+      # desired foot velocity i
+      vd = np.zeros(3) # Check if it should be zero
+
+      # foot velocity in leg frame i (Equation 2)
+      v_foot_i = np.zeros(3)
+      v_foot_i = J_foot_i @ dq[3*i:3*i+3]
+
+      # calculate torques with Cartesian PD
+      cart_tau = J_foot_i.T @ ( kpCartesian @ (pd - foot_pos_i) + kdCartesian @ (vd - v_foot_i) )
+      tau += cart_tau
       
       action[3*i:3*i+3] = tau
 
