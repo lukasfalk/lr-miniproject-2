@@ -1,0 +1,19 @@
+– PPO 17
+– weighted reward function
+– Slopes (1st slopes run)
+– based on: 121425014514
+
+reward function:
+reward = (
+    0.4 * vel_tracking_reward +
+    1.3 * orientation_penalty +
+    1.3 * heading_reward +
+    energy_penalty +
+    drift_penalty +
+    smooth_cpg_penalty
+)
+
+observation limit:
+observation_high = np.concatenate(
+    (max_rpy, max_v_body, max_r, max_theta, max_dr, max_dtheta)
+) + OBSERVATION_EPS

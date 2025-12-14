@@ -329,7 +329,7 @@ class QuadrupedGymEnv(gym.Env):
   ######################################################################################
   # Termination and reward
   ######################################################################################
-  def is_fallen(self,dot_prod_min=0.85):
+  def is_fallen(self):
     """Decide whether the quadruped has fallen.
 
     If the up directions between the base and the world is larger (the dot
@@ -339,11 +339,18 @@ class QuadrupedGymEnv(gym.Env):
     Returns:
       Boolean value that indicates whether the quadruped has fallen.
     """
+    
     base_rpy = self.robot.GetBaseOrientationRollPitchYaw()
     orientation = self.robot.GetBaseOrientation()
     rot_mat = self._pybullet_client.getMatrixFromQuaternion(orientation)
     local_up = rot_mat[6:]
     pos = self.robot.GetBasePosition()
+    
+    if self._terrain == "SLOPES":
+        dot_prod_min = 0.75
+    else:
+        dot_prod_min = 0.85
+        
     return (np.dot(np.asarray([0, 0, 1]), np.asarray(local_up)) < dot_prod_min or pos[2] < self._robot_config.IS_FALLEN_HEIGHT)
 
   def _termination(self):
@@ -494,12 +501,12 @@ class QuadrupedGymEnv(gym.Env):
     # Final weighted sum
     # --------------------------------------------------------------
     reward = (
-        1.0 * vel_tracking_reward +
-        orientation_penalty + #*0.5 +
-        heading_reward  #0.3 #+
-        # energy_penalty +
-        # drift_penalty +
-        # smooth_cpg_penalty
+        0.4 * vel_tracking_reward +
+        1.3 * orientation_penalty +
+        1.3 * heading_reward +
+        energy_penalty +
+        drift_penalty +
+        smooth_cpg_penalty
     )
 
     # ensure non-negative reward
@@ -750,7 +757,8 @@ class QuadrupedGymEnv(gym.Env):
 
       if self._terrain is not None:
         if self._terrain == "SLOPES":
-          self.add_slopes(pitch=0.2) # TODO - can change this to use a random var so that more robust
+          self.add_slopes(pitch=0.3)
+          #self.add_slopes(pitch=np.random.uniform(0.05, 0.3)) # TODO - can change this to use a random var so that more robust
         elif self._terrain == "STAIRS":
           self.add_stairs(num_stairs=12, stair_height=0.05, stair_width=0.25)
         elif self._terrain == "GAPS":

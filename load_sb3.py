@@ -55,8 +55,24 @@ from utils.utils import plot_results
 from utils.file_utils import get_latest_model, load_all_results
 
 LEARNING_ALG = "PPO" #"SAC"
-interm_dir = "./logs/intermediate_models/121225161036"
+#interm_dir = "./logs/intermediate_models/121325222414"
+#
+#weighted fully (1, 0.5, 0.3)
+#interm_dir = "./logs/intermediate_models/121325222414"
+#unweighted
+#interm_dir = "./logs/intermediate_models/121425002429"
+#new weighted (0.4, 1.3, 1.3)
+#interm_dir = "./logs/intermediate_models/121425014514"
+#slope run with base 121425014514
+#interm_dir = "./logs/intermediate_models/121425134857"
+#random slope run with base 121425134857 (1/3)
+#interm_dir = "./logs/intermediate_models/121425155310"
+#random slope run with base 121425155310 (2/3)
+#interm_dir = "./logs/intermediate_models/121425190350"
+#random slope run with base 121425190350 (3/3) 
+interm_dir = "./logs/intermediate_models/121425210800"
 # path to saved models, i.e. interm_dir + '102824115106'
+#
 log_dir = interm_dir + ''
 
 # initialize env configs (render at test time)
@@ -69,6 +85,7 @@ env_config['add_noise'] = False
 env_config["motor_control_mode"] = "CPG"
 env_config["task_env"] = "LR_COURSE_TASK"
 env_config["observation_space_mode"] = "LR_COURSE_OBS"
+env_config["terrain"] = "SLOPES" 
 
 # get latest model and normalization stats, and plot 
 stats_path = os.path.join(log_dir, "vec_normalize.pkl")
