@@ -205,8 +205,6 @@ class HopfNetwork():
         for j in range(4):
           theta_dot += X[0, j] * self._coupling_strength * np.sin(X[1,j]- theta - self.PHI[i,j]) # [TODO] - Is the coupling strength constant between oscillators?
         
-          theta_dot += X[0, j]*self._coupling_strength*np.sin(X[1,j]-theta-self.PHI[i,j])
-        
 
       # set X_dot[:,i]
       X_dot[:,i] = [r_dot, theta_dot]
@@ -235,6 +233,14 @@ class HopfNetwork():
   def get_dtheta(self):
     """ Get CPG phase derivatives (theta_dot) """
     return self.X_dot[1,:]
+  
+  def get_phi(self):
+    theta = self.X[1, :]
+    return (theta[None, :] - theta[:, None]) - self.PHI
+
+  def get_dphi(self):
+    dtheta = self.X_dot[1, :]
+    return (dtheta[None, :] - dtheta[:, None])
 
 ##################################################################################
 #  Functions for setting parameters for RL
@@ -275,3 +281,5 @@ class HopfNetwork():
     self.X = X + (X_dot_prev + X_dot) * self._dt / 2
     self.X_dot = X_dot
     self.X[1,:] = self.X[1,:] % (2*np.pi)
+    
+    

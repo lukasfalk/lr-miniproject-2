@@ -196,6 +196,8 @@ class QuadrupedGymEnv(gym.Env):
     self._last_frame_time = 0.0 # for rendering 
     self._MAX_EP_LEN = EPISODE_LENGTH # max sim time in seconds, arbitrary
     self._action_bound = 1.0
+    
+    self._foot_link_ids = [5, 9, 13, 17]   # FR, FL, RR, RL
 
     # if using CPG
     self.setupCPG()
@@ -229,34 +231,63 @@ class QuadrupedGymEnv(gym.Env):
                             np.array([-1.0]*4))) - OBSERVATION_EPS)
 
     elif self._observation_space_mode == "LR_COURSE_OBS":
-      # LR course obs: [rpy(3), v_body(3), r(4), theta(4), dr(4), dtheta(4)] = 22
-      max_commanded_vel = np.array([2, 0, 0])
+      # --- commanded velocity bounds ---
+      # (tune these to how you define commanded_velocity)
+      max_cmd = np.array([2.0, 2.0, 0])
 
-      # orientation bounds (rad)
-      max_rpy = np.array([np.pi/2, np.pi/2, np.pi])   # roll, pitch, yaw
+      # --- base rpy bounds ---
+      max_rpy = np.array([np.pi/2, np.pi/2, np.pi])
 
-      # base linear velocity bounds (m/s) in body frame
-      # ~ +/- 3 m/s horizontally, +/- 1 m/s vertically
-      max_v_body = np.array([3.0, 3.0, 1.0])
+      # --- body-frame linear & angular vel bounds ---
+      max_v_body = np.array([3.0, 3.0, 1.5])
+      max_omega_body = np.array([10.0, 10.0, 10.0])
 
-      # CPG amplitude r: µ is in about [1,2] in the paper; give margin up to 3. 
-      max_r = np.ones(4) * 3.0
+      # --- joint bounds from config ---
+      max_q  = self._robot_config.UPPER_ANGLE_JOINT
+      min_q  = self._robot_config.LOWER_ANGLE_JOINT
+      max_dq = self._robot_config.VELOCITY_LIMITS
 
-      # CPG phase theta in [-pi, pi]
-      max_theta = np.ones(4) * np.pi
+      # --- contacts (0/1) ---
+      max_contacts = np.ones(4)
 
-      # amplitude rate dr (arbitrary but reasonable bound)
-      max_dr = np.ones(4) * 10.0
+      # --- last action bounds (CPG action in [-1,1]) ---
+      max_last_action = np.ones(self._action_dim)  # should be 8 in CPG mode
 
-      # phase rate dtheta: in the paper ω ∈ [0, 4.5] Hz, so |θ̇| ≈ 2π * 4.5 ≈ 28.3 rad/s. 
+      # --- CPG states ---
+      max_r      = np.ones(4) * 3.0
+      max_dr     = np.ones(4) * 10.0
+      max_theta  = np.ones(4) * np.pi
       max_dtheta = np.ones(4) * 30.0
 
-      observation_high = np.concatenate(
-          (max_commanded_vel, max_rpy, max_v_body, max_r, max_theta, max_dr, max_dtheta)
-      ) + OBSERVATION_EPS
+      # --- phi and dphi (flattened 4x4) ---
+      max_phi  = np.ones(16) * (2*np.pi)     # safe bound; you can wrap to [-pi,pi] if you want
+      max_dphi = np.ones(16) * (2*30.0)      # ~ difference of two dtheta's
 
-      observation_low = -observation_high
-
+      observation_high = np.concatenate((
+        max_cmd,
+        max_rpy,
+        max_v_body,
+        max_omega_body,
+        max_q,            # 12
+        max_dq,           # 12
+        max_contacts,     # 4
+        max_last_action,  # 8
+        max_r, max_dr, max_theta, max_dtheta,  # 16
+        max_phi, max_dphi                     # 32
+      )) + OBSERVATION_EPS
+      
+      observation_low = np.concatenate((
+        -max_cmd, -max_rpy, -max_v_body, -max_omega_body,
+        self._robot_config.LOWER_ANGLE_JOINT,
+        -self._robot_config.VELOCITY_LIMITS,
+        np.zeros(4),
+        -np.ones(self._action_dim),
+        -max_r, -max_dr, -max_theta, -max_dtheta,
+        -max_phi, -max_dphi
+      )) - OBSERVATION_EPS
+      
+      self.observation_space = spaces.Box(observation_low, observation_high, dtype=np.float32)
+      
     else:
       raise ValueError("observation space not defined or not intended")
 
@@ -284,29 +315,63 @@ class QuadrupedGymEnv(gym.Env):
           self.robot.GetBaseOrientation() ))
 
     elif self._observation_space_mode == "LR_COURSE_OBS":
+      
+      
+      
       # --- base orientation (roll, pitch, yaw) ---
       base_rpy = np.array(self.robot.GetBaseOrientationRollPitchYaw())  # [3]
 
-      # --- base linear velocity (body frame) ---
-      v_world = np.array(self.robot.GetBaseLinearVelocity())            # [3]
       # orientation as quaternion, then rotation matrix
+      # --- orientation (quaternion -> rotation matrix) ---
       quat = self.robot.GetBaseOrientation()
-      rot_mat = np.array(self._pybullet_client.getMatrixFromQuaternion(quat)).reshape(3, 3)
-      # body frame velocity: v_b = R^T * v_world
-      v_body = rot_mat.T @ v_world                                       # [3]
+      rot_mat = np.array(
+          self._pybullet_client.getMatrixFromQuaternion(quat)
+      ).reshape(3, 3)
 
+      # --- linear velocity ---
+      v_world = np.array(self.robot.GetBaseLinearVelocity())      # [vx, vy, vz] world
+      v_body = rot_mat.T @ v_world                                # body frame
+
+      # --- angular velocity ---
+      omega_world = np.array(self.robot.GetBaseAngularVelocity()) # [wx, wy, wz] world
+      omega_body = rot_mat.T @ omega_world
+      
+      q  = np.array(self.robot.GetMotorAngles())      # joint positions (12,)
+      dq = np.array(self.robot.GetMotorVelocities())  # joint velocities (12,)
+      
+      # --- last action (policy output at t-1) ---
+      last_action = self._last_action.copy()           # (8,) for CPG
+       
       # --- CPG states (per leg) ---
       # each of these should be shape (4,)
       r      = np.array(self._cpg.get_r())
       theta  = np.array(self._cpg.get_theta())
       dr     = np.array(self._cpg.get_dr())
       dtheta = np.array(self._cpg.get_dtheta())
+      
+      phi = np.array(self._cpg.get_phi()).reshape(-1)
+      dphi = np.array(self._cpg.get_dphi()).reshape(-1)
+      
+      foot_contacts = self.get_foot_contacts()
 
       # (optional) wrap theta into [-pi, pi] for numerical stability
       theta = (theta + np.pi) % (2.0 * np.pi) - np.pi
 
       # final observation: [rpy(3), v_body(3), r(4), theta(4), dr(4), dtheta(4)] = 22 dims
-      self._observation = np.concatenate((self.commanded_velocity, base_rpy, v_body, r, theta, dr, dtheta))
+      self._observation = np.concatenate((self.commanded_velocity, 
+                                          base_rpy, 
+                                          v_body, 
+                                          omega_body,
+                                          q,
+                                          dq,
+                                          foot_contacts,
+                                          last_action,
+                                          r,
+                                          dr, 
+                                          theta,
+                                          dtheta,
+                                          phi,
+                                          dphi))
 
     else:
       raise ValueError("observation space not defined or not intended")
@@ -327,6 +392,14 @@ class QuadrupedGymEnv(gym.Env):
 
   def _get_info(self) -> dict:
     return {'base_pos': self.robot.GetBasePosition()} 
+  
+  def get_foot_contacts(self):
+    """Return 4 contact booleans: [FR, FL, RR, RL]."""
+    contacts = np.zeros(4, dtype=np.float32)
+    for i, link_id in enumerate(self._foot_link_ids):
+        pts = self._pybullet_client.getContactPoints(bodyA=self.robot.quadruped, linkIndexA=link_id)
+        contacts[i] = 1.0 if len(pts) > 0 else 0.0
+    return contacts
 
   ######################################################################################
   # Termination and reward
@@ -429,84 +502,76 @@ class QuadrupedGymEnv(gym.Env):
     
   def _reward_lr_course(self):
     """
-    Reward function for the LR Course locomotion task.
-    Encourages:
-      - tracking a desired base velocity,
-      - stable orientation,
-      - minimizing energy consumption,
-      - smooth CPG modulation,
-      - low lateral drift.
+    Reward function matching the paper section:
+
+    Track commanded body-frame velocities (vx, vy) and body yaw rate wz.
+    Penalize vertical body velocity vz, roll/pitch rates (wx, wy), and "work".
+
+    f(x) = exp(-||x||^2 / 0.25)
+
+    Weights:
+      0.75 dt for vx tracking
+      0.75 dt for vy tracking
+      0.50 dt for wz tracking
+      2.00 dt for vz penalty
+      0.05 dt for (wx, wy) penalty
+      0.001 dt for work penalty
+
+    dt = control policy timestep = action_repeat * sim_dt
     """
 
-    # --------------------------------------------------------------
-    # 1) Velocity tracking reward (desired velocity chosen externally)
-    # --------------------------------------------------------------
-    # Example: sample desired forward velocity between 0.5 and 1.5 m/s
-    # You can also set self.desired_vel in run_sb3.py when constructing env
-    current_vel = np.array(self.robot.GetBaseLinearVelocity())
+    # policy/control timestep (should be 0.01 if time_step=0.001 and action_repeat=10)
+    dt = float(self._time_step * self._action_repeat) 
 
-    vel_error = current_vel - self.commanded_velocity
-    vel_tracking_reward = np.exp(-1.0 * np.linalg.norm(vel_error))  # ∈ (0,1]
+    def f(x):
+        # x can be scalar or vector
+        x = np.asarray(x)
+        return np.exp(-np.sum(x * x) / 0.25)
 
-
-    # --------------------------------------------------------------
-    # 2) Body orientation reward (penalize roll and pitch)
-    # --------------------------------------------------------------
-    roll, pitch, yaw = self.robot.GetBaseOrientationRollPitchYaw()
-
-    orientation_penalty = np.exp(-4.0 * (4*abs(roll) + abs(pitch)))  # good posture; Fredi added 4*
-
-
-    # --------------------------------------------------------------
-    # 3) Heading alignment (robot should face direction of movement)
-    # --------------------------------------------------------------
-    desired_heading = np.arctan2(self.commanded_velocity[1], self.commanded_velocity[0])
-    heading_error = abs(yaw - desired_heading)
-    heading_reward = np.exp(-1.5 * heading_error)
-
-
-    # --------------------------------------------------------------
-    # 4) Energy penalty (mechanical work)
-    # --------------------------------------------------------------
-    energy = 0
-    for tau, vel in zip(self._dt_motor_torques, self._dt_motor_velocities):
-        energy += np.abs(np.dot(tau, vel)) * self._time_step
-
-    energy_penalty = -0.005 * energy
-
-
-    # --------------------------------------------------------------
-    # 5) Lateral drift penalty (stay close to straight path)
-    # --------------------------------------------------------------
-    lat_pos = abs(self.robot.GetBasePosition()[1])
-    drift_penalty = -0.05 * lat_pos * 3 #Fredi added *3
-
-
-    # --------------------------------------------------------------
-    # 6) Smooth CPG penalty (discourage violent changes)
-    # --------------------------------------------------------------
-    dtheta = np.array(self._cpg.get_dtheta())
-    smooth_cpg_penalty = -0.001 * np.linalg.norm(dtheta)
     
-    # --------------------------------------------------------------
-    # 7) height penalty
-    # --------------------------------------------------------------
-    z = self.robot.GetBasePosition()[2]
+    # ------------------------------------------------------------
+    # current body-frame linear & angular velocities
+    # ------------------------------------------------------------
+    quat = self.robot.GetBaseOrientation()
+    R = np.array(self._pybullet_client.getMatrixFromQuaternion(quat)).reshape(3, 3)
 
-    # --------------------------------------------------------------
-    # Final weighted sum
-    # --------------------------------------------------------------
+    v_world = np.asarray(self.robot.GetBaseLinearVelocity())
+    w_world = np.asarray(self.robot.GetBaseAngularVelocity())
+
+    v_body = R.T @ v_world
+    w_body = R.T @ w_world
+
+    vbx, vby, vbz = float(v_body[0]), float(v_body[1]), float(v_body[2])
+    wbx, wby, wbz = float(w_body[0]), float(w_body[1]), float(w_body[2])
+
+    # ------------------------------------------------------------
+    # Terms (exactly like the paper bullets)
+    # ------------------------------------------------------------
+    r_vx = f(self.commanded_velocity[0] - vbx)
+    r_vy = f(self.commanded_velocity[1] - vby)
+
+    p_vz = -(vbz ** 2)
+    p_wxy = -(wbx ** 2 + wby ** 2)
+
+    # work: -| τ · (qdot^t - qdot^{t-1}) |
+    tau = np.asarray(self._dt_motor_torques[-1]) if len(self._dt_motor_torques) > 0 else np.zeros(12) #get last motor torque
+    qdot = np.asarray(self.robot.GetMotorVelocities())
+    qdot_prev = self._prev_motor_velocities
+    p_work = -abs(float(np.dot(tau, (qdot - qdot_prev))))
+
+    # ------------------------------------------------------------
+    # Weighted sum (same weights from the paper)
+    # ------------------------------------------------------------
     reward = (
-        0.4 * vel_tracking_reward +
-        1.3 * orientation_penalty +
-        1.3 * heading_reward +
-        energy_penalty +
-        drift_penalty +
-        smooth_cpg_penalty
+        0.75 * dt * r_vx +
+        0.75 * dt * r_vy +
+        2.00 * dt * p_vz +
+        0.05 * dt * p_wxy +
+        0.001 * dt * p_work
     )
 
-    # ensure non-negative reward
-    return max(reward, 0.0)
+    return float(reward)
+
 
 
   def _reward(self): # TODO - here is where we set the reward funciton depending on the TASK_EVN
@@ -693,6 +758,9 @@ class QuadrupedGymEnv(gym.Env):
     self._env_step_counter += 1
     reward = self._reward()
     truncated = False
+    self._prev_motor_velocities = np.asarray(
+      self.robot.GetMotorVelocities()
+    ).copy()
     
     if (self.get_sim_time() > self._MAX_EP_LEN and not self._test_flagrun ):
       truncated = True
@@ -708,6 +776,7 @@ class QuadrupedGymEnv(gym.Env):
   ######################################################################################
   # Reset
   ######################################################################################
+    
   def reset(self, seed: Optional[float] = None):
     """ Set up simulation environment. """
     mu_min = 0.5
@@ -792,6 +861,10 @@ class QuadrupedGymEnv(gym.Env):
     
     if self._is_record_video:
       self.recordVideoHelper()
+      
+    self._prev_motor_velocities = np.asarray(
+      self.robot.GetMotorVelocities()
+    ).copy()
     
     return self._noisy_observation(), self._get_info()
 
