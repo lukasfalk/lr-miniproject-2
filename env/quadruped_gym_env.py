@@ -248,18 +248,26 @@ class QuadrupedGymEnv(gym.Env):
 
       motor_vel_limits = self._robot_config.VELOCITY_LIMITS
 
-      motor_agle_limits = self._robot_config.UPPER_ANGLE_JOINT
+      motor_angle_lower_limits = self._robot_config.LOWER_ANGLE_JOINT
+      motor_angle_upper_limits = self._robot_config.UPPER_ANGLE_JOINT
 
       observation_high = np.concatenate((
           max_commanded_vel, 
           max_v_body, 
           max_rpy, 
           max_ang_velocity, 
-          motor_agle_limits, 
+          motor_angle_upper_limits, 
           motor_vel_limits
           )) + OBSERVATION_EPS
 
-      observation_low = -observation_high
+      observation_low = np.concatenate((
+          -max_commanded_vel, 
+          -max_v_body, 
+          -max_rpy, 
+          -max_ang_velocity, 
+          motor_angle_lower_limits, 
+          -motor_vel_limits
+          )) + OBSERVATION_EPS
 
     else:
       raise ValueError("observation space not defined or not intended")

@@ -96,11 +96,24 @@ obs = env.reset()
 episode_reward = 0
 print(obs)
 # [TODO] initialize arrays to save data from simulation 
+ref_vel_log = []
+actual_vel_log = []
+time_log = []
+
+TEST_COMMAND_VEL = np.array([1.5, 0.0, 0.0])
 
 for i in range(2000):
-    obs[0, 0] = 1.5
-    obs[0, 1] = 0.0
-    obs[0, 2] = 0.0
+    # obs[0, 0] = 1.5
+    # obs[0, 1] = 0.0
+    # obs[0, 2] = 0.0
+    env.set_attr("commanded_velocity", TEST_COMMAND_VEL)
+    robot = env.get_attr("robot")[0]
+    actual_vel = robot.GetBaseLinearVelocity()
+
+    ref_vel_log.append(TEST_COMMAND_VEL[0])   # Log X command
+    actual_vel_log.append(actual_vel[0])      # Log X actual
+    time_log.append(i * 0.001 * 10)           # timestep * action_repeat (approx)
+
     action, _states = model.predict(obs,deterministic=False) # sample at test time? ([TODO]: test if the outputs make sense)
     obs, rewards, dones, info = env.step(action)
     episode_reward += rewards
@@ -114,3 +127,13 @@ for i in range(2000):
     # To get base position, for example: env.envs[0].env.robot.GetBasePosition() 
     
 # [TODO] make plots
+plt.figure(figsize=(10, 5))
+plt.plot(time_log, ref_vel_log, label='Reference Velocity (X)', linestyle='--', color='red')
+plt.plot(time_log, actual_vel_log, label='Actual Velocity (X)', alpha=0.8)
+plt.title('Velocity Tracking Performance')
+plt.xlabel('Time (s)')
+plt.ylabel('Velocity (m/s)')
+plt.legend()
+plt.grid(True)
+plt.savefig("velocity_tracking.png") # Save plot
+plt.show()
