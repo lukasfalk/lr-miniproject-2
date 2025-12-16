@@ -55,7 +55,7 @@ from utils.utils import plot_results
 from utils.file_utils import get_latest_model, load_all_results
 
 LEARNING_ALG = "PPO" #"SAC"
-interm_dir = "./logs/intermediate_models/121225020524"
+interm_dir = "./logs/intermediate_models/121525234225"
 # path to saved models, i.e. interm_dir + '102824115106'
 log_dir = interm_dir + ''
 
@@ -66,7 +66,7 @@ env_config['render'] = True
 env_config['record_video'] = False
 env_config['add_noise'] = False 
 
-env_config["motor_control_mode"] = "CPG"
+env_config["motor_control_mode"] = "CARTESIAN_PD"
 env_config["task_env"] = "LR_COURSE_TASK"
 env_config["observation_space_mode"] = "LR_COURSE_OBS"
 
@@ -98,6 +98,7 @@ episode_reward = 0
 # [TODO] initialize arrays to save data from simulation 
 
 for i in range(2000):
+    obs[0] = np.array([1.5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
     action, _states = model.predict(obs,deterministic=False) # sample at test time? ([TODO]: test if the outputs make sense)
     obs, rewards, dones, info = env.step(action)
     episode_reward += rewards
