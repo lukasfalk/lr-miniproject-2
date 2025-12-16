@@ -57,7 +57,7 @@ from utils.file_utils import get_latest_model, load_all_results
 LEARNING_ALG = "PPO" #"SAC"
 #interm_dir = "./logs/intermediate_models/121325222414"
 #best model so far previously: 121225020524
-interm_dir = "./logs/intermediate_models/121325222414"
+#interm_dir = "./logs/intermediate_models/121325222414"
 #weighted fully (1, 0.5, 0.3)
 #interm_dir = "./logs/intermediate_models/121325222414"
 #unweighted
@@ -76,6 +76,14 @@ interm_dir = "./logs/intermediate_models/121325222414"
 #interm_dir = "./logs/intermediate_models/121525010206"
 #random slope run with base 121425210800 (4/4) random slope again
 #interm_dir = "./logs/intermediate_models/121525154102"
+#
+#
+#
+#
+#
+#
+#new run
+interm_dir = "./logs/intermediate_models/121625213658"
 # path to saved models, i.e. interm_dir + '102824115106'
 #
 log_dir = interm_dir + ''
@@ -91,6 +99,9 @@ env_config["motor_control_mode"] = "CPG"
 env_config["task_env"] = "LR_COURSE_TASK"
 env_config["observation_space_mode"] = "LR_COURSE_OBS"
 #env_config["terrain"] = "SLOPES" 
+env_config['randomise_commanded_velocity'] = False
+env_config['commanded_velocity'] = np.array([1.0, 0, 0])  
+
 
 # get latest model and normalization stats, and plot 
 stats_path = os.path.join(log_dir, "vec_normalize.pkl")

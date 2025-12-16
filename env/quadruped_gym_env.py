@@ -368,6 +368,7 @@ class QuadrupedGymEnv(gym.Env):
                                           q,
                                           dq,
                                           foot_contacts,
+                                          #command out last action for med. obs. space
                                           last_action,
                                           r,
                                           dr, 
@@ -515,7 +516,6 @@ class QuadrupedGymEnv(gym.Env):
     Weights:
       0.75 dt for vx tracking
       0.75 dt for vy tracking
-      0.50 dt for wz tracking
       2.00 dt for vz penalty
       0.05 dt for (wx, wy) penalty
       0.001 dt for work penalty
@@ -524,6 +524,7 @@ class QuadrupedGymEnv(gym.Env):
     """
 
     # policy/control timestep (should be 0.01 if time_step=0.001 and action_repeat=10)
+    #print(self.commanded_velocity)
     dt = float(self._time_step * self._action_repeat) 
 
     def f(x):
@@ -773,6 +774,10 @@ class QuadrupedGymEnv(gym.Env):
       
       if dist_to_goal < 0.5:
         self._reset_goal()
+    
+    #quat = self.robot.GetBaseOrientation()
+    #R = np.array(self._pybullet_client.getMatrixFromQuaternion(quat)).reshape(3, 3)    
+    #print('current linear velocity: ', R.T @ np.asarray(self.robot.GetBaseLinearVelocity()))
 
     return np.array(self._noisy_observation()), reward, self._termination(), truncated, self._get_info()
 

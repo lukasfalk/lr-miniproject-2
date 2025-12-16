@@ -32,6 +32,7 @@
 Run stable baselines 3 on quadruped env 
 Check the documentation! https://stable-baselines3.readthedocs.io/en/master/
 """
+import numpy as np
 
 # misc
 import os
@@ -60,7 +61,10 @@ USE_GPU = False # make sure to install all necessary drivers
 def main():
     env_configs = {"motor_control_mode":"CPG",
                    "task_env": "LR_COURSE_TASK", #"FWD_LOCOMOTION", #  "LR_COURSE_TASK",
-                   "observation_space_mode": "LR_COURSE_OBS"}
+                   "observation_space_mode": "LR_COURSE_OBS",
+                   "randomise_commanded_velocity": False,
+                   "commanded_velocity": np.array([1, 0, 0])
+                   }
 
     if USE_GPU and LEARNING_ALG=="SAC":
         gpu_arg = "auto" 
