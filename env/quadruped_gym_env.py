@@ -460,7 +460,7 @@ class QuadrupedGymEnv(gym.Env):
     # --------------------------------------------------------------
     # 3) Heading alignment (robot should face direction of movement)
     # --------------------------------------------------------------
-    desired_heading = np.arctan2(desired_velocity[1], desired_velocity[0])
+    desired_heading = np.arctan2(self.commanded_velocity[1], self.commanded_velocity[0])
     heading_error = abs(yaw - desired_heading)
     heading_reward = np.exp(-1.5 * heading_error)
 
