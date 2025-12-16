@@ -136,6 +136,8 @@ class QuadrupedGymEnv(gym.Env):
       add_noise=True,
       terrain=None,
       test_flagrun=False, 
+      randomise_commanded_velocity = True,
+      commanded_velocity = np.array([1.5, 0, 0]),
       **kwargs): # any extra arguments from legacy
     """Initialize the quadruped gym environment.
     Args:
@@ -182,7 +184,8 @@ class QuadrupedGymEnv(gym.Env):
     self._test_flagrun = test_flagrun
     self.goal_id = None
     self._terrain = terrain
-    self.commanded_velocity = np.array([1.5, 0, 0])
+    self._randomise_commanded_velocity = randomise_commanded_velocity
+    self.commanded_velocity = commanded_velocity
     if self._add_noise:
       self._observation_noise_stdev = 0.01 #
     else:
@@ -783,7 +786,9 @@ class QuadrupedGymEnv(gym.Env):
 
     # Update seed
     self.seed(seed)
-    self.commanded_velocity = np.array([np.random.uniform(0.5, 1.5), 0, 0])
+
+    if (self._randomise_commanded_velocity):
+      self.commanded_velocity = np.array([np.random.uniform(0.5, 1.5), 0, 0])
     
     # Disable rendering when setting up models (otherwise too slow)
     if self._is_render:
