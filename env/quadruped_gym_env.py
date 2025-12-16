@@ -181,8 +181,8 @@ class QuadrupedGymEnv(gym.Env):
     self._using_test_env = test_env
     self._test_flagrun = test_flagrun
     self.goal_id = None
-    self.commanded_velocity = np.array([1, 0, 0])
     self._terrain = terrain
+    self.commanded_velocity = np.array([1.5, 0, 0])
     if self._add_noise:
       self._observation_noise_stdev = 0.01 #
     else:
@@ -230,24 +230,29 @@ class QuadrupedGymEnv(gym.Env):
 
     elif self._observation_space_mode == "LR_COURSE_OBS":
       # LR course obs: [rpy(3), v_body(3), r(4), theta(4), dr(4), dtheta(4)] = 22
-      # Observation space for Velocity Command Task:
-      # [Base RPY (3), Base Lin Vel (3), Base Ang Vel (3), Motor Angles (12), Motor Velocities (12), Desired Vel (3)]
-      # Total dimension: 3 + 3 + 3 + 12 + 12 + 3 = 36
-            
-      # 1. Desired Velocity Command (Lin X)
       max_commanded_vel = np.array([2, 0, 0])
+
+      # orientation bounds (rad)
+      max_rpy = np.array([np.pi/2, np.pi/2, np.pi])   # roll, pitch, yaw
 
       # base linear velocity bounds (m/s) in body frame
       # ~ +/- 3 m/s horizontally, +/- 1 m/s vertically
       max_v_body = np.array([3.0, 3.0, 1.0])
 
-      # orientation bounds (rad)
-      max_rpy = np.array([np.pi/2, np.pi/2, np.pi])   # roll, pitch, yaw
+      # CPG amplitude r: µ is in about [1,2] in the paper; give margin up to 3. 
+      max_r = np.ones(4) * 3.0
 
-      max_ang_velocity = np.array([5.0, 5.0, 5.0])
+      # CPG phase theta in [-pi, pi]
+      max_theta = np.ones(4) * np.pi
+
+      # amplitude rate dr (arbitrary but reasonable bound)
+      max_dr = np.ones(4) * 10.0
+
+      # phase rate dtheta: in the paper ω ∈ [0, 4.5] Hz, so |θ̇| ≈ 2π * 4.5 ≈ 28.3 rad/s. 
+      max_dtheta = np.ones(4) * 30.0
 
       observation_high = np.concatenate(
-          (max_commanded_vel, max_v_body, max_rpy, max_ang_velocity)
+          (max_commanded_vel, max_rpy, max_v_body, max_r, max_theta, max_dr, max_dtheta)
       ) + OBSERVATION_EPS
 
       observation_low = -observation_high
@@ -279,17 +284,29 @@ class QuadrupedGymEnv(gym.Env):
           self.robot.GetBaseOrientation() ))
 
     elif self._observation_space_mode == "LR_COURSE_OBS":
-      # Get Robot State
-      base_lin_vel = self.robot.GetBaseLinearVelocity()
-      base_rpy = self.robot.GetBaseOrientationRollPitchYaw()
-      base_ang_vel = self.robot.GetBaseAngularVelocity()
+      # --- base orientation (roll, pitch, yaw) ---
+      base_rpy = np.array(self.robot.GetBaseOrientationRollPitchYaw())  # [3]
 
-      self._observation = np.concatenate((
-          self.commanded_velocity,
-          base_lin_vel,
-          base_rpy, 
-          base_ang_vel, 
-      ))
+      # --- base linear velocity (body frame) ---
+      v_world = np.array(self.robot.GetBaseLinearVelocity())            # [3]
+      # orientation as quaternion, then rotation matrix
+      quat = self.robot.GetBaseOrientation()
+      rot_mat = np.array(self._pybullet_client.getMatrixFromQuaternion(quat)).reshape(3, 3)
+      # body frame velocity: v_b = R^T * v_world
+      v_body = rot_mat.T @ v_world                                       # [3]
+
+      # --- CPG states (per leg) ---
+      # each of these should be shape (4,)
+      r      = np.array(self._cpg.get_r())
+      theta  = np.array(self._cpg.get_theta())
+      dr     = np.array(self._cpg.get_dr())
+      dtheta = np.array(self._cpg.get_dtheta())
+
+      # (optional) wrap theta into [-pi, pi] for numerical stability
+      theta = (theta + np.pi) % (2.0 * np.pi) - np.pi
+
+      # final observation: [rpy(3), v_body(3), r(4), theta(4), dr(4), dtheta(4)] = 22 dims
+      self._observation = np.concatenate((self.commanded_velocity, base_rpy, v_body, r, theta, dr, dtheta))
 
     else:
       raise ValueError("observation space not defined or not intended")
@@ -314,7 +331,7 @@ class QuadrupedGymEnv(gym.Env):
   ######################################################################################
   # Termination and reward
   ######################################################################################
-  def is_fallen(self,dot_prod_min=0.85):
+  def is_fallen(self):
     """Decide whether the quadruped has fallen.
 
     If the up directions between the base and the world is larger (the dot
@@ -324,11 +341,18 @@ class QuadrupedGymEnv(gym.Env):
     Returns:
       Boolean value that indicates whether the quadruped has fallen.
     """
+    
     base_rpy = self.robot.GetBaseOrientationRollPitchYaw()
     orientation = self.robot.GetBaseOrientation()
     rot_mat = self._pybullet_client.getMatrixFromQuaternion(orientation)
     local_up = rot_mat[6:]
     pos = self.robot.GetBasePosition()
+    
+    if self._terrain == "SLOPES":
+        dot_prod_min = 0.75
+    else:
+        dot_prod_min = 0.85
+        
     return (np.dot(np.asarray([0, 0, 1]), np.asarray(local_up)) < dot_prod_min or pos[2] < self._robot_config.IS_FALLEN_HEIGHT)
 
   def _termination(self):
@@ -417,7 +441,8 @@ class QuadrupedGymEnv(gym.Env):
     # --------------------------------------------------------------
     # 1) Velocity tracking reward (desired velocity chosen externally)
     # --------------------------------------------------------------
-
+    # Example: sample desired forward velocity between 0.5 and 1.5 m/s
+    # You can also set self.desired_vel in run_sb3.py when constructing env
     current_vel = np.array(self.robot.GetBaseLinearVelocity())
 
     vel_error = current_vel - self.commanded_velocity
@@ -456,6 +481,13 @@ class QuadrupedGymEnv(gym.Env):
     lat_pos = abs(self.robot.GetBasePosition()[1])
     drift_penalty = -0.05 * lat_pos * 3 #Fredi added *3
 
+
+    # --------------------------------------------------------------
+    # 6) Smooth CPG penalty (discourage violent changes)
+    # --------------------------------------------------------------
+    dtheta = np.array(self._cpg.get_dtheta())
+    smooth_cpg_penalty = -0.001 * np.linalg.norm(dtheta)
+    
     # --------------------------------------------------------------
     # 7) height penalty
     # --------------------------------------------------------------
@@ -465,11 +497,12 @@ class QuadrupedGymEnv(gym.Env):
     # Final weighted sum
     # --------------------------------------------------------------
     reward = (
-        1.0 * vel_tracking_reward +
-        0.5 * orientation_penalty +
-        0.3 * heading_reward +
+        0.4 * vel_tracking_reward +
+        1.3 * orientation_penalty +
+        1.3 * heading_reward +
         energy_penalty +
-        drift_penalty
+        drift_penalty +
+        smooth_cpg_penalty
     )
 
     # ensure non-negative reward
@@ -681,10 +714,9 @@ class QuadrupedGymEnv(gym.Env):
     """ Set up simulation environment. """
     mu_min = 0.5
 
-    self.commanded_velocity = np.array([np.random.uniform(0.5, 1.5), 0, 0])
-
     # Update seed
     self.seed(seed)
+    self.commanded_velocity = np.array([np.random.uniform(0.5, 1.5), 0, 0])
     
     # Disable rendering when setting up models (otherwise too slow)
     if self._is_render:
@@ -724,7 +756,8 @@ class QuadrupedGymEnv(gym.Env):
 
       if self._terrain is not None:
         if self._terrain == "SLOPES":
-          self.add_slopes(pitch=0.2) # TODO - can change this to use a random var so that more robust
+          self.add_slopes(pitch=0.3)
+          #self.add_slopes(pitch=np.random.uniform(0.05, 0.3)) # TODO - can change this to use a random var so that more robust
         elif self._terrain == "STAIRS":
           self.add_stairs(num_stairs=12, stair_height=0.05, stair_width=0.25)
         elif self._terrain == "GAPS":
