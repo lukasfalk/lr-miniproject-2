@@ -203,10 +203,7 @@ class HopfNetwork():
       if self._couple:
         theta_dot += omega_i
         for j in range(4):
-          theta_dot += X[0, j] * self._coupling_strength * np.sin(X[1,j]- theta - self.PHI[i,j]) # [TODO] - Is the coupling strength constant between oscillators?
-        
-          theta_dot += X[0, j]*self._coupling_strength*np.sin(X[1,j]-theta-self.PHI[i,j])
-        
+          theta_dot += X[0, j] * self._coupling_strength * np.sin(X[1,j]- theta - self.PHI[i,j]) # [TODO] - Is the coupling strength constant between oscillators?        
 
       # set X_dot[:,i]
       X_dot[:,i] = [r_dot, theta_dot]
