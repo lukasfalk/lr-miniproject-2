@@ -182,6 +182,7 @@ class QuadrupedGymEnv(gym.Env):
     self._test_flagrun = test_flagrun
     self.goal_id = None
     self._terrain = terrain
+    self.commanded_velocity = np.array([1.5, 0, 0])
     if self._add_noise:
       self._observation_noise_stdev = 0.01 #
     else:
@@ -229,6 +230,7 @@ class QuadrupedGymEnv(gym.Env):
 
     elif self._observation_space_mode == "LR_COURSE_OBS":
       # LR course obs: [rpy(3), v_body(3), r(4), theta(4), dr(4), dtheta(4)] = 22
+      max_commanded_vel = np.array([2, 0, 0])
 
       # orientation bounds (rad)
       max_rpy = np.array([np.pi/2, np.pi/2, np.pi])   # roll, pitch, yaw
@@ -250,7 +252,7 @@ class QuadrupedGymEnv(gym.Env):
       max_dtheta = np.ones(4) * 30.0
 
       observation_high = np.concatenate(
-          (max_rpy, max_v_body, max_r, max_theta, max_dr, max_dtheta)
+          (max_commanded_vel, max_rpy, max_v_body, max_r, max_theta, max_dr, max_dtheta)
       ) + OBSERVATION_EPS
 
       observation_low = -observation_high
@@ -304,7 +306,7 @@ class QuadrupedGymEnv(gym.Env):
       theta = (theta + np.pi) % (2.0 * np.pi) - np.pi
 
       # final observation: [rpy(3), v_body(3), r(4), theta(4), dr(4), dtheta(4)] = 22 dims
-      self._observation = np.concatenate((base_rpy, v_body, r, theta, dr, dtheta))
+      self._observation = np.concatenate((self.commanded_velocity, base_rpy, v_body, r, theta, dr, dtheta))
 
     else:
       raise ValueError("observation space not defined or not intended")
@@ -441,15 +443,9 @@ class QuadrupedGymEnv(gym.Env):
     # --------------------------------------------------------------
     # Example: sample desired forward velocity between 0.5 and 1.5 m/s
     # You can also set self.desired_vel in run_sb3.py when constructing env
-    if not hasattr(self, "desired_velocity"):
-        # Default target speed: 1.0 m/s forward
-        desired_velocity = np.array([1.0, 0.0, 0.0])
-    else:
-        desired_velocity = self.desired_velocity
-
     current_vel = np.array(self.robot.GetBaseLinearVelocity())
 
-    vel_error = current_vel - desired_velocity
+    vel_error = current_vel - self.commanded_velocity
     vel_tracking_reward = np.exp(-1.0 * np.linalg.norm(vel_error))  # ∈ (0,1]
 
 
@@ -718,6 +714,7 @@ class QuadrupedGymEnv(gym.Env):
 
     # Update seed
     self.seed(seed)
+    self.commanded_velocity = np.array([np.random.uniform(0.5, 1.5), 0, 0])
     
     # Disable rendering when setting up models (otherwise too slow)
     if self._is_render:
