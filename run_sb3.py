@@ -35,6 +35,7 @@ Check the documentation! https://stable-baselines3.readthedocs.io/en/master/
 
 # misc
 import os
+import sys
 from datetime import datetime
 import tensorboard as tf
 
@@ -58,6 +59,13 @@ USE_GPU = False # make sure to install all necessary drivers
 
 # after implementing, you will want to test how well the agent learns with your MDP: 
 def main():
+    # Check if a command line argument (like 0.5) was passed
+    if len(sys.argv) > 1:
+        target_speed = float(sys.argv[1])
+        print(f"Training with Target Speed: {target_speed}")
+    else:
+        target_speed = 1.0
+
     env_configs = {"motor_control_mode":"CARTESIAN_PD",
                    "task_env": "LR_COURSE_TASK", #"FWD_LOCOMOTION", #  "LR_COURSE_TASK",
                    "observation_space_mode": "LR_COURSE_OBS"}

@@ -36,11 +36,11 @@ import matplotlib
 import matplotlib.pyplot as plt
 from sys import platform
 # may be helpful depending on your system
-# if platform =="darwin": # mac
-#   import PyQt5
-#   matplotlib.use("Qt5Agg")
-# else: # linux
-#   matplotlib.use('TkAgg')
+if platform =="darwin": # mac
+  import PyQt5
+  matplotlib.use("Qt5Agg")
+else: # linux
+  matplotlib.use('TkAgg')
 
 # stable-baselines3
 from stable_baselines3.common.monitor import load_results 
@@ -94,11 +94,13 @@ print("\nLoaded model", model_name, "\n")
 
 obs = env.reset()
 episode_reward = 0
-
+print(obs)
 # [TODO] initialize arrays to save data from simulation 
 
 for i in range(2000):
-    obs[0] = np.array([1.5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+    obs[0, 0] = 1.5
+    obs[0, 1] = 0.0
+    obs[0, 2] = 0.0
     action, _states = model.predict(obs,deterministic=False) # sample at test time? ([TODO]: test if the outputs make sense)
     obs, rewards, dones, info = env.step(action)
     episode_reward += rewards

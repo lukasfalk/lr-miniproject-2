@@ -246,9 +246,18 @@ class QuadrupedGymEnv(gym.Env):
 
       max_ang_velocity = np.array([5.0, 5.0, 5.0])
 
-      observation_high = np.concatenate(
-          (max_commanded_vel, max_v_body, max_rpy, max_ang_velocity)
-      ) + OBSERVATION_EPS
+      motor_vel_limits = self._robot_config.VELOCITY_LIMITS
+
+      motor_agle_limits = self._robot_config.UPPER_ANGLE_JOINT
+
+      observation_high = np.concatenate((
+          max_commanded_vel, 
+          max_v_body, 
+          max_rpy, 
+          max_ang_velocity, 
+          motor_agle_limits, 
+          motor_vel_limits
+          )) + OBSERVATION_EPS
 
       observation_low = -observation_high
 
@@ -283,12 +292,16 @@ class QuadrupedGymEnv(gym.Env):
       base_lin_vel = self.robot.GetBaseLinearVelocity()
       base_rpy = self.robot.GetBaseOrientationRollPitchYaw()
       base_ang_vel = self.robot.GetBaseAngularVelocity()
+      motor_angles = self.robot.GetMotorAngles()
+      motor_velocities = self.robot.GetMotorVelocities()
 
       self._observation = np.concatenate((
           self.commanded_velocity,
           base_lin_vel,
           base_rpy, 
           base_ang_vel, 
+          motor_angles, 
+          motor_velocities
       ))
 
     else:
