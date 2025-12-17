@@ -89,9 +89,11 @@ LEARNING_ALG = "PPO" #"SAC"
 #new run 3 run med obs SLOPES
 #interm_dir = "./logs/intermediate_models/121725012451" 
 #new run 4 run med obs world frame
-interm_dir = "./logs/intermediate_models/121725125512"
+#interm_dir = "./logs/intermediate_models/121725125512"
 #new run 5 run full obs world frame
 #interm_dir = "./logs/intermediate_models/121725143400"
+#new run 5 runn med obs world frame more noise (0.04)
+interm_dir = "./logs/intermediate_models/121725200411"
 # path to saved models, i.e. interm_dir + '102824115106'
 #
 log_dir = interm_dir + ''
@@ -136,12 +138,27 @@ print("\nLoaded model", model_name, "\n")
 obs = env.reset()
 episode_reward = 0
 
-# [TODO] initialize arrays to save data from simulation 
+# =========================
+# Data logging containers
+# =========================
+base_lin_vel = []   # list of [vx, vy, vz]
+time_log = []
+
+dt = env.envs[0].env._time_step  # simulation timestep
+t = 0.0
 
 for i in range(2000):
     action, _states = model.predict(obs,deterministic=False) # sample at test time? ([TODO]: test if the outputs make sense)
     obs, rewards, dones, info = env.step(action)
     episode_reward += rewards
+
+    # =========================
+    # Log base linear velocity
+    # =========================
+    v = env.envs[0].env.robot.GetBaseLinearVelocity()
+    base_lin_vel.append(v)
+    time_log.append(t)
+    t += dt
     
     if dones:
         print('episode_reward', episode_reward)
@@ -150,5 +167,24 @@ for i in range(2000):
 
     # [TODO] save data from current robot states for plots 
     # To get base position, for example: env.envs[0].env.robot.GetBasePosition() 
+
+base_lin_vel = np.array(base_lin_vel)  # shape: (T, 3)
+time_log = np.array(time_log)
     
-# [TODO] make plots
+# =========================
+# Plot base linear velocity
+# =========================
+cmd_vx = env_config['commanded_velocity']
+
+plt.figure(figsize=(10, 5))
+plt.plot(time_log, base_lin_vel[:, 0]- cmd_vx[0], label="v_x")
+plt.plot(time_log, base_lin_vel[:, 1]- cmd_vx[1], label="v_y")
+plt.plot(time_log, base_lin_vel[:, 2]- cmd_vx[2], label="v_z")
+
+plt.xlabel("Time [s]")
+plt.ylabel("Base Linear Velocity Error [m/s]")
+plt.title("Quadruped Base Linear Velocity Error During Policy Execution")
+plt.legend()
+plt.grid(True)
+plt.tight_layout()
+plt.show()

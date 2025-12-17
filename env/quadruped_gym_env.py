@@ -187,7 +187,7 @@ class QuadrupedGymEnv(gym.Env):
     self._randomise_commanded_velocity = randomise_commanded_velocity
     self.commanded_velocity = commanded_velocity
     if self._add_noise:
-      self._observation_noise_stdev = 0.01 #
+      self._observation_noise_stdev = 0.04 #from 0.01
     else:
       self._observation_noise_stdev = 0.0
 
