@@ -271,20 +271,20 @@ class QuadrupedGymEnv(gym.Env):
         max_rpy,
         max_v_body,
         max_omega_body,
-        max_q, # comment out for medium OBS.  
-        max_dq, # comment out for medium OBS.           
+        #max_q, # comment out for medium OBS.  
+        #max_dq, # comment out for medium OBS.           
         max_contacts,     
-        max_last_action, # comment out for medium OBS.
+        #max_last_action, # comment out for medium OBS.
         max_r, max_dr, max_theta, max_dtheta, 
         max_phi, max_dphi                     
       )) + OBSERVATION_EPS
       
       observation_low = np.concatenate((
         -max_cmd, -max_rpy, -max_v_body, -max_omega_body,
-        self._robot_config.LOWER_ANGLE_JOINT, # comment out for medium OBS.
-        -self._robot_config.VELOCITY_LIMITS, # comment out for medium OBS.
+        #self._robot_config.LOWER_ANGLE_JOINT, # comment out for medium OBS.
+        #-self._robot_config.VELOCITY_LIMITS, # comment out for medium OBS.
         np.zeros(4),
-        -np.ones(self._action_dim), # comment out for medium OBS.
+        #-np.ones(self._action_dim), # comment out for medium OBS.
         -max_r, -max_dr, -max_theta, -max_dtheta,
         -max_phi, -max_dphi
       )) - OBSERVATION_EPS
@@ -365,10 +365,10 @@ class QuadrupedGymEnv(gym.Env):
                                           base_rpy, 
                                           v_body, 
                                           omega_body,
-                                          q, # comment out for medium OBS.
-                                          dq, # comment out for medium OBS.
+                                          #q, # comment out for medium OBS.
+                                          #dq, # comment out for medium OBS.
                                           foot_contacts,
-                                          last_action, # comment out for medium OBS.
+                                          #last_action, # comment out for medium OBS.
                                           r,
                                           dr, 
                                           theta,
