@@ -271,20 +271,20 @@ class QuadrupedGymEnv(gym.Env):
         max_rpy,
         max_v_body,
         max_omega_body,
-        max_q,            # 12
-        max_dq,           # 12
+        #max_q,            # 12
+        #max_dq,           # 12
         max_contacts,     # 4
-        max_last_action,  # 8
+        #max_last_action,  # 8
         max_r, max_dr, max_theta, max_dtheta,  # 16
         max_phi, max_dphi                     # 32
       )) + OBSERVATION_EPS
       
       observation_low = np.concatenate((
         -max_cmd, -max_rpy, -max_v_body, -max_omega_body,
-        self._robot_config.LOWER_ANGLE_JOINT,
-        -self._robot_config.VELOCITY_LIMITS,
+        #self._robot_config.LOWER_ANGLE_JOINT,
+        #-self._robot_config.VELOCITY_LIMITS,
         np.zeros(4),
-        -np.ones(self._action_dim),
+        #-np.ones(self._action_dim),
         -max_r, -max_dr, -max_theta, -max_dtheta,
         -max_phi, -max_dphi
       )) - OBSERVATION_EPS
@@ -365,11 +365,11 @@ class QuadrupedGymEnv(gym.Env):
                                           base_rpy, 
                                           v_body, 
                                           omega_body,
-                                          q,
-                                          dq,
+                                          #q,
+                                          #dq,
                                           foot_contacts,
                                           #command out last action for med. obs. space
-                                          last_action,
+                                          #last_action,
                                           r,
                                           dr, 
                                           theta,
