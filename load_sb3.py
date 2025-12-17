@@ -82,8 +82,12 @@ LEARNING_ALG = "PPO" #"SAC"
 #
 #
 #
-#new run
-interm_dir = "./logs/intermediate_models/121625213658"
+#new run 1 run full obs
+#interm_dir = "./logs/intermediate_models/121625220200"
+#new run 2 run med obs
+#interm_dir = "./logs/intermediate_models/121625233724"
+#new run 3 run med obs SLOPES
+#interm_dir = "./logs/intermediate_models/121725012451" 
 # path to saved models, i.e. interm_dir + '102824115106'
 #
 log_dir = interm_dir + ''

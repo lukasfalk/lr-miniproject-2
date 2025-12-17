@@ -271,20 +271,20 @@ class QuadrupedGymEnv(gym.Env):
         max_rpy,
         max_v_body,
         max_omega_body,
-        #max_q,            # 12
-        #max_dq,           # 12
-        max_contacts,     # 4
-        #max_last_action,  # 8
-        max_r, max_dr, max_theta, max_dtheta,  # 16
-        max_phi, max_dphi                     # 32
+        #max_q, # comment out for medium OBS.  
+        #max_dq, # comment out for medium OBS.           
+        max_contacts,     
+        #max_last_action, # comment out for medium OBS.
+        max_r, max_dr, max_theta, max_dtheta, 
+        max_phi, max_dphi                     
       )) + OBSERVATION_EPS
       
       observation_low = np.concatenate((
         -max_cmd, -max_rpy, -max_v_body, -max_omega_body,
-        #self._robot_config.LOWER_ANGLE_JOINT,
-        #-self._robot_config.VELOCITY_LIMITS,
+        #self._robot_config.LOWER_ANGLE_JOINT, # comment out for medium OBS.
+        #-self._robot_config.VELOCITY_LIMITS, # comment out for medium OBS.
         np.zeros(4),
-        #-np.ones(self._action_dim),
+        #-np.ones(self._action_dim), # comment out for medium OBS.
         -max_r, -max_dr, -max_theta, -max_dtheta,
         -max_phi, -max_dphi
       )) - OBSERVATION_EPS
@@ -333,11 +333,11 @@ class QuadrupedGymEnv(gym.Env):
 
       # --- linear velocity ---
       v_world = np.array(self.robot.GetBaseLinearVelocity())      # [vx, vy, vz] world
-      v_body = rot_mat.T @ v_world                                # body frame
+      v_body = v_world #rot_mat.T @ v_world                                # body frame
 
       # --- angular velocity ---
       omega_world = np.array(self.robot.GetBaseAngularVelocity()) # [wx, wy, wz] world
-      omega_body = rot_mat.T @ omega_world
+      omega_body = omega_world #rot_mat.T @ omega_world
       
       q  = np.array(self.robot.GetMotorAngles())      # joint positions (12,)
       dq = np.array(self.robot.GetMotorVelocities())  # joint velocities (12,)
@@ -365,11 +365,10 @@ class QuadrupedGymEnv(gym.Env):
                                           base_rpy, 
                                           v_body, 
                                           omega_body,
-                                          #q,
-                                          #dq,
+                                          #q, # comment out for medium OBS.
+                                          #dq, # comment out for medium OBS.
                                           foot_contacts,
-                                          #command out last action for med. obs. space
-                                          #last_action,
+                                          #last_action, # comment out for medium OBS.
                                           r,
                                           dr, 
                                           theta,
@@ -542,8 +541,8 @@ class QuadrupedGymEnv(gym.Env):
     v_world = np.asarray(self.robot.GetBaseLinearVelocity())
     w_world = np.asarray(self.robot.GetBaseAngularVelocity())
 
-    v_body = R.T @ v_world
-    w_body = R.T @ w_world
+    v_body = v_world # R.T @ v_world
+    w_body = w_world # R.T @ w_world
 
     vbx, vby, vbz = float(v_body[0]), float(v_body[1]), float(v_body[2])
     wbx, wby, wbz = float(w_body[0]), float(w_body[1]), float(w_body[2])
@@ -833,7 +832,7 @@ class QuadrupedGymEnv(gym.Env):
 
       if self._terrain is not None:
         if self._terrain == "SLOPES":
-          self.add_slopes(pitch=0.3)
+          self.add_slopes(pitch=0.2)
           #self.add_slopes(pitch=np.random.uniform(0.05, 0.3)) # TODO - can change this to use a random var so that more robust
         elif self._terrain == "STAIRS":
           self.add_stairs(num_stairs=12, stair_height=0.05, stair_width=0.25)
