@@ -832,8 +832,8 @@ class QuadrupedGymEnv(gym.Env):
 
       if self._terrain is not None:
         if self._terrain == "SLOPES":
-          self.add_slopes(pitch=0.2)
-          #self.add_slopes(pitch=np.random.uniform(0.05, 0.3)) # TODO - can change this to use a random var so that more robust
+          #self.add_slopes(pitch=0.2)
+          self.add_slopes(pitch=np.random.uniform(0.05, 0.3)) # TODO - can change this to use a random var so that more robust
         elif self._terrain == "STAIRS":
           self.add_stairs(num_stairs=12, stair_height=0.05, stair_width=0.25)
         elif self._terrain == "GAPS":

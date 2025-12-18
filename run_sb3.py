@@ -75,7 +75,9 @@ def main():
     if LOAD_NN:
         interm_dir = "./logs/intermediate_models/"
         # 121725125512 <- medium obs, flat, no noise
-        log_dir = interm_dir + '121725125512' # add path
+        #log_dir = interm_dir + '121725125512' # add path
+        # 121825102644 <- fixed slopes
+        log_dir = interm_dir + '121825102644' # add path
         stats_path = os.path.join(log_dir, "vec_normalize.pkl")
         model_name = get_latest_model(log_dir)
 
