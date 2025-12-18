@@ -77,8 +77,8 @@ LEARNING_ALG = "PPO" #"SAC"
 #random slope run with base 121425210800 (4/4) random slope again
 #interm_dir = "./logs/intermediate_models/121525154102"
 #
-#
-#
+#flat with constant velocity (1,0,0), CPG, minimal observation
+interm_dir = "./logs/intermediate_models/121725172313"
 #
 #
 #
