@@ -92,8 +92,13 @@ LEARNING_ALG = "PPO" #"SAC"
 #interm_dir = "./logs/intermediate_models/121725125512"
 #new run 5 run full obs world frame
 #interm_dir = "./logs/intermediate_models/121725143400"
-#new run 5 runn med obs world frame more noise (0.04)
-interm_dir = "./logs/intermediate_models/121725200411"
+#new run 6 run med obs world frame more noise (0.04)
+#interm_dir = "./logs/intermediate_models/121725200411"
+#new run 7 run med obs world frame random velocity
+#interm_dir = "./logs/intermediate_models/121725234805"
+#new run 8 run med obs world frame fixed slopes based on run 4
+interm_dir = "./logs/intermediate_models/121825102644"
+
 # path to saved models, i.e. interm_dir + '102824115106'
 #
 log_dir = interm_dir + ''
@@ -108,7 +113,7 @@ env_config['add_noise'] = False
 env_config["motor_control_mode"] = "CPG"
 env_config["task_env"] = "LR_COURSE_TASK"
 env_config["observation_space_mode"] = "LR_COURSE_OBS"
-#env_config["terrain"] = "SLOPES" 
+env_config["terrain"] = "SLOPES" 
 env_config['randomise_commanded_velocity'] = False
 env_config['commanded_velocity'] = np.array([1.0, 0, 0])  
 

@@ -53,7 +53,7 @@ from utils.file_utils import get_latest_model
 from env.quadruped_gym_env import QuadrupedGymEnv
 
 LEARNING_ALG = "PPO" # or "SAC"
-LOAD_NN = False # if you want to initialize training with a previous model 
+LOAD_NN = True # if you want to initialize training with a previous model 
 NUM_ENVS = 1    # how many pybullet environments to create for data collection
 USE_GPU = False # make sure to install all necessary drivers 
 
@@ -63,9 +63,8 @@ def main():
                    "task_env": "LR_COURSE_TASK", #"FWD_LOCOMOTION", #  "LR_COURSE_TASK",
                    "observation_space_mode": "LR_COURSE_OBS",
                    "randomise_commanded_velocity": False,
-                   "commanded_velocity": np.array([1, 0, 0]),
-                   #"terrain": "SLOPES",
-                   "add_noise": True
+                   "commanded_velocity": np.array([1.0, 0, 0]),
+                   "terrain": "SLOPES",
                    }
 
     if USE_GPU and LEARNING_ALG=="SAC":
@@ -75,7 +74,8 @@ def main():
 
     if LOAD_NN:
         interm_dir = "./logs/intermediate_models/"
-        log_dir = interm_dir + '' # add path
+        # 121725125512 <- medium obs, flat, no noise
+        log_dir = interm_dir + '121725125512' # add path
         stats_path = os.path.join(log_dir, "vec_normalize.pkl")
         model_name = get_latest_model(log_dir)
 
