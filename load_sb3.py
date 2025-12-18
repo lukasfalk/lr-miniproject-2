@@ -97,7 +97,12 @@ interm_dir = "./logs/intermediate_models/121725172313"
 #new run 7 run med obs world frame random velocity
 #interm_dir = "./logs/intermediate_models/121725234805"
 #new run 8 run med obs world frame fixed slopes based on run 4
-interm_dir = "./logs/intermediate_models/121825102644"
+#interm_dir = "./logs/intermediate_models/121825102644"
+#new run 9 run med obs world frame random slopes (0.05, 0.3) based on run 4 PPO9
+#interm_dir = "./logs/intermediate_models/121825163357"
+#new run 10 run med obs world frame random velocity based on run 4 PPO10
+#interm_dir = "./logs/intermediate_models/121825181753"
+
 
 # path to saved models, i.e. interm_dir + '102824115106'
 #
