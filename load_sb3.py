@@ -100,8 +100,8 @@ interm_dir = "./logs/intermediate_models/121725172313"
 #interm_dir = "./logs/intermediate_models/121825102644"
 #new run 9 run med obs world frame random slopes (0.05, 0.3) based on run 4 PPO9
 #interm_dir = "./logs/intermediate_models/121825163357"
-#new run 10 run med obs world frame random velocity based on run 4 PPO10
-#interm_dir = "./logs/intermediate_models/121825181753"
+#new run 10 run med obs world frame random velocity PPO10
+interm_dir = "./logs/intermediate_models/121825181753"
 
 
 # path to saved models, i.e. interm_dir + '102824115106'
@@ -118,7 +118,7 @@ env_config['add_noise'] = False
 env_config["motor_control_mode"] = "CPG"
 env_config["task_env"] = "LR_COURSE_TASK"
 env_config["observation_space_mode"] = "LR_COURSE_OBS"
-env_config["terrain"] = "SLOPES" 
+#env_config["terrain"] = "SLOPES" 
 env_config['randomise_commanded_velocity'] = False
 env_config['commanded_velocity'] = np.array([1.0, 0, 0])  
 
@@ -178,23 +178,80 @@ for i in range(2000):
     # [TODO] save data from current robot states for plots 
     # To get base position, for example: env.envs[0].env.robot.GetBasePosition() 
 
+####
+####
+####
+#### plotting
+####
+####
+####
 base_lin_vel = np.array(base_lin_vel)  # shape: (T, 3)
 time_log = np.array(time_log)
+
+# =========================
+# Plot avg change in velocity error (with shaded band)
+# =========================
+cmd_v = np.array(env_config["commanded_velocity"])  # shape: (3,)
+
+# 1) Velocity error e(t) = v(t) - cmd
+vel_error = base_lin_vel - cmd_v  # (T, 3)
+
+# 2) Change in error Δe(t) = e(t) - e(t-1)
+delta_error = np.diff(vel_error, axis=0)  # (T-1, 3)
+t = time_log[1:]  # align with diff output
+
+# 3) Rolling mean/std for "line + shaded area"
+def rolling_mean_std(x, window=50):
+    w = np.ones(window) / window
+    mean = np.convolve(x, w, mode="same")
+    mean_sq = np.convolve(x**2, w, mode="same")
+    var = np.maximum(mean_sq - mean**2, 0.0)
+    std = np.sqrt(var)
+    return mean, std
+
+window = 50  # tune: larger = smoother
+
+fig, axs = plt.subplots(3, 1, figsize=(10, 8), sharex=True)
+
+axis_names = ["x", "y", "z"]
+for i, ax in enumerate(axs):
+    m, s = rolling_mean_std(delta_error[:, i], window=window)
+
+    # main line (rolling mean)
+    ax.plot(t, m, label=f"Δ error v_{axis_names[i]}")
+
+    # shaded region (±1 rolling std)
+    ax.fill_between(t, m - s, m + s, alpha=0.2, label="±1 rolling std")
+
+    ax.set_ylabel("Avg Δ Error [m/s]")
+    ax.grid(True)
+    ax.legend()
+
+axs[-1].set_xlabel("Time [s]")
+fig.suptitle("Quadruped Base Linear Velocity: Average Change in Error (Line + Band)")
+plt.tight_layout()
+plt.show()
+
+
+
+
+# base_lin_vel = np.array(base_lin_vel)  # shape: (T, 3)
+# time_log = np.array(time_log)
     
 # =========================
 # Plot base linear velocity
 # =========================
-cmd_vx = env_config['commanded_velocity']
+# cmd_vx = env_config['commanded_velocity']
 
-plt.figure(figsize=(10, 5))
-plt.plot(time_log, base_lin_vel[:, 0]- cmd_vx[0], label="v_x")
-plt.plot(time_log, base_lin_vel[:, 1]- cmd_vx[1], label="v_y")
-plt.plot(time_log, base_lin_vel[:, 2]- cmd_vx[2], label="v_z")
+# plt.figure(figsize=(10, 5))
+# plt.plot(time_log, base_lin_vel[:, 0]- cmd_vx[0], label="v_x")
+# plt.plot(time_log, base_lin_vel[:, 1]- cmd_vx[1], label="v_y")
+# plt.plot(time_log, base_lin_vel[:, 2]- cmd_vx[2], label="v_z")
 
-plt.xlabel("Time [s]")
-plt.ylabel("Base Linear Velocity Error [m/s]")
-plt.title("Quadruped Base Linear Velocity Error During Policy Execution")
-plt.legend()
-plt.grid(True)
-plt.tight_layout()
-plt.show()
+# plt.xlabel("Time [s]")
+# plt.ylabel("Base Linear Velocity Error [m/s]")
+# plt.title("Quadruped Base Linear Velocity Error During Policy Execution")
+# plt.legend()
+# plt.grid(True)
+# plt.tight_layout()
+# plt.show()
