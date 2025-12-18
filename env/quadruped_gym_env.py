@@ -30,7 +30,7 @@
 
 """This file implements the gym environment for a quadruped. """
 
-import os, inspect
+import os, inspect, sys
 # so we can import files
 currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 os.sys.path.insert(0, currentdir)
@@ -271,20 +271,20 @@ class QuadrupedGymEnv(gym.Env):
         max_rpy,
         max_v_body,
         max_omega_body,
-        max_q, # comment out for medium OBS.  
-        max_dq, # comment out for medium OBS.           
+        # max_q, # comment out for medium OBS.  
+        # max_dq, # comment out for medium OBS.           
         max_contacts,     
-        max_last_action, # comment out for medium OBS.
-        max_r, max_dr, max_theta, max_dtheta, 
+        # max_last_action, # comment out for medium OBS.
+        max_r, max_dr, max_theta, max_dtheta,
         max_phi, max_dphi                     
       )) + OBSERVATION_EPS
       
       observation_low = np.concatenate((
         -max_cmd, -max_rpy, -max_v_body, -max_omega_body,
-        self._robot_config.LOWER_ANGLE_JOINT, # comment out for medium OBS.
-        -self._robot_config.VELOCITY_LIMITS, # comment out for medium OBS.
+        # self._robot_config.LOWER_ANGLE_JOINT, # comment out for medium OBS.
+        # -self._robot_config.VELOCITY_LIMITS, # comment out for medium OBS.
         np.zeros(4),
-        -np.ones(self._action_dim), # comment out for medium OBS.
+        # -np.ones(self._action_dim), # comment out for medium OBS.
         -max_r, -max_dr, -max_theta, -max_dtheta,
         -max_phi, -max_dphi
       )) - OBSERVATION_EPS
@@ -361,20 +361,22 @@ class QuadrupedGymEnv(gym.Env):
       theta = (theta + np.pi) % (2.0 * np.pi) - np.pi
 
       # final observation: [rpy(3), v_body(3), r(4), theta(4), dr(4), dtheta(4)] = 22 dims
-      self._observation = np.concatenate((self.commanded_velocity, 
+      self._observation = np.concatenate((
+                                          self.commanded_velocity, 
                                           base_rpy, 
                                           v_body, 
                                           omega_body,
-                                          q, # comment out for medium OBS.
-                                          dq, # comment out for medium OBS.
+                                          # q, # comment out for medium OBS.
+                                          # dq, # comment out for medium OBS.
                                           foot_contacts,
-                                          last_action, # comment out for medium OBS.
+                                          # last_action, # comment out for medium OBS.
                                           r,
                                           dr, 
                                           theta,
                                           dtheta,
                                           phi,
-                                          dphi))
+                                          dphi
+                                          ))
 
     else:
       raise ValueError("observation space not defined or not intended")
@@ -656,7 +658,6 @@ class QuadrupedGymEnv(gym.Env):
       action[3*i:3*i+3] = tau
 
     return action
-
 
   def ScaleActionToCPGStateModulations(self,actions):
     """Scale RL action to CPG modulation parameters."""

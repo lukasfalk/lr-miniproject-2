@@ -54,26 +54,20 @@ from utils.file_utils import get_latest_model
 from env.quadruped_gym_env import QuadrupedGymEnv
 
 LEARNING_ALG = "PPO" # or "SAC"
-LOAD_NN = False # if you want to initialize training with a previous model 
-NUM_ENVS = 8    # how many pybullet environments to create for data collection
+LOAD_NN = True # if you want to initialize training with a previous model [NEXT] set to True
+NUM_ENVS = 1    # how many pybullet environments to create for data collection
 USE_GPU = False # make sure to install all necessary drivers 
 
 # after implementing, you will want to test how well the agent learns with your MDP: 
 def main():
-    # Check if a command line argument (like 0.5) was passed
-    if len(sys.argv) > 1:
-        target_speed = float(sys.argv[1])
-        print(f"Training with Target Speed: {target_speed}")
-    else:
-        target_speed = 1.0
-
-    env_configs = {"motor_control_mode":"CARTESIAN_PD",
-                   "task_env": "LR_COURSE_TASK", #"FWD_LOCOMOTION", #  "LR_COURSE_TASK",
-                   "observation_space_mode": "LR_COURSE_OBS",
-                   "randomise_commanded_velocity": False,
-                   "commanded_velocity": np.array([1, 0, 0])#,
-                   #"terrain": "SLOPES"
-                   }
+    env_configs = {
+        "motor_control_mode":"CARTESIAN_PD",
+        "task_env": "LR_COURSE_TASK", #"FWD_LOCOMOTION", #  "LR_COURSE_TASK",
+        "observation_space_mode": "LR_COURSE_OBS",
+        "randomise_commanded_velocity": True, # [NEXT] set to True
+        "commanded_velocity": np.array([0, 0, 0])#, [NEXT] set to [0, 0, 0]
+        #"terrain": "SLOPES"
+    }
 
     if USE_GPU and LEARNING_ALG=="SAC":
         gpu_arg = "auto" 
@@ -82,7 +76,7 @@ def main():
 
     if LOAD_NN:
         interm_dir = "./logs/intermediate_models/"
-        log_dir = interm_dir + '' # add path
+        log_dir = interm_dir + '121725222423' # add path [NEXT] set to '121725222423'
         stats_path = os.path.join(log_dir, "vec_normalize.pkl")
         model_name = get_latest_model(log_dir)
 
