@@ -69,6 +69,9 @@ env_config['add_noise'] = False
 env_config["motor_control_mode"] = "CARTESIAN_PD"
 env_config["task_env"] = "LR_COURSE_TASK"
 env_config["observation_space_mode"] = "LR_COURSE_OBS"
+env_config['randomise_commanded_velocity'] = False
+env_config['commanded_velocity'] = np.array([1.0, 0, 0])  
+
 
 # get latest model and normalization stats, and plot 
 stats_path = os.path.join(log_dir, "vec_normalize.pkl")
@@ -95,28 +98,28 @@ print("\nLoaded model", model_name, "\n")
 obs = env.reset()
 episode_reward = 0
 print(obs)
-# [TODO] initialize arrays to save data from simulation 
-ref_vel_log = []
-actual_vel_log = []
+
+# =========================
+# Data logging containers
+# =========================
+base_lin_vel = []   # list of [vx, vy, vz]
 time_log = []
 
-TEST_COMMAND_VEL = np.array([1.5, 0.0, 0.0])
+dt = env.envs[0].env._time_step  # simulation timestep
+t = 0.0
 
 for i in range(2000):
-    # obs[0, 0] = 1.5
-    # obs[0, 1] = 0.0
-    # obs[0, 2] = 0.0
-    env.set_attr("commanded_velocity", TEST_COMMAND_VEL)
-    robot = env.get_attr("robot")[0]
-    actual_vel = robot.GetBaseLinearVelocity()
-
-    ref_vel_log.append(TEST_COMMAND_VEL[0])   # Log X command
-    actual_vel_log.append(actual_vel[0])      # Log X actual
-    time_log.append(i * 0.001 * 10)           # timestep * action_repeat (approx)
-
     action, _states = model.predict(obs,deterministic=False) # sample at test time? ([TODO]: test if the outputs make sense)
     obs, rewards, dones, info = env.step(action)
     episode_reward += rewards
+
+    # =========================
+    # Log base linear velocity
+    # =========================
+    v = env.envs[0].env.robot.GetBaseLinearVelocity()
+    base_lin_vel.append(v)
+    time_log.append(t)
+    t += dt
     
     if dones:
         print('episode_reward', episode_reward)
@@ -125,15 +128,23 @@ for i in range(2000):
 
     # [TODO] save data from current robot states for plots 
     # To get base position, for example: env.envs[0].env.robot.GetBasePosition() 
+
+base_lin_vel = np.array(base_lin_vel)  # shape: (T, 3)
+time_log = np.array(time_log)
     
-# [TODO] make plots
+# =========================
+# Plot base linear velocity
+# =========================
+cmd_vx = env_config['commanded_velocity']
+
 plt.figure(figsize=(10, 5))
-plt.plot(time_log, ref_vel_log, label='Reference Velocity (X)', linestyle='--', color='red')
-plt.plot(time_log, actual_vel_log, label='Actual Velocity (X)', alpha=0.8)
-plt.title('Velocity Tracking Performance')
-plt.xlabel('Time (s)')
-plt.ylabel('Velocity (m/s)')
+plt.plot(time_log, abs(base_lin_vel[:, 0]- cmd_vx[0]), label="v_x")
+plt.plot(time_log, abs(base_lin_vel[:, 1]- cmd_vx[1]), label="v_y")
+
+plt.xlabel("Time [s]")
+plt.ylabel("Base Linear Velocity Absolute Error [m/s]")
+plt.title("Quadruped Base Linear Velocity Error During Policy Execution")
 plt.legend()
 plt.grid(True)
-plt.savefig("velocity_tracking.png") # Save plot
+plt.tight_layout()
 plt.show()
