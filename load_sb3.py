@@ -103,9 +103,9 @@ interm_dir = "./logs/intermediate_models/121725172313"
 #new run 8 run med obs world frame fixed slopes based on run 4
 #interm_dir = "./logs/intermediate_models/121825102644"
 #new run 9 run med obs world frame random slopes (0.05, 0.3) based on run 4 PPO9
-interm_dir = "./logs/intermediate_models/121825163357"
+#interm_dir = "./logs/intermediate_models/121825163357"
 #new run 10 run med obs world frame random velocity PPO10
-#interm_dir = "./logs/intermediate_models/121825181753"
+interm_dir = "./logs/intermediate_models/121825181753"
 
 
 # path to saved models, i.e. interm_dir + '102824115106'
@@ -122,9 +122,9 @@ env_config['add_noise'] = False
 env_config["motor_control_mode"] = "CPG"
 env_config["task_env"] = "LR_COURSE_TASK"
 env_config["observation_space_mode"] = "LR_COURSE_OBS"
-env_config["terrain"] = "SLOPES" 
-env_config['randomise_commanded_velocity'] = False
-env_config['commanded_velocity'] = np.array([1.0, 0, 0])  
+#env_config["terrain"] = "SLOPES" 
+env_config['randomise_commanded_velocity'] = True
+env_config['commanded_velocity'] = np.array([0, 0, 0])  
 
 
 # get latest model and normalization stats, and plot 
@@ -207,9 +207,20 @@ time_log = []
 dt = env.envs[0].env._time_step  # simulation timestep
 t = 0.0
 
+# =========================
+# Duty cycle logging (single rollout)
+# =========================
+contacts_log = []   # [FR, FL, RR, RL] per step
+time_log_dc = []
+DT = env.envs[0].env._time_step * env.envs[0].env._action_repeat
+
+
 for i in range(2000):
     action, _states = model.predict(obs,deterministic=False) # sample at test time? ([TODO]: test if the outputs make sense)
     obs, rewards, dones, info = env.step(action)
+    contacts = env.envs[0].env.get_foot_contacts()  # shape (4,)
+    contacts_log.append(np.array(contacts, dtype=int))
+    time_log_dc.append(i * DT)
     taus = env.envs[0].env._dt_motor_torques
     qdots = env.envs[0].env._dt_motor_velocities
     for tau, qdot in zip(taus, qdots):
@@ -236,6 +247,35 @@ for i in range(2000):
     # To get base position, for example: env.envs[0].env.robot.GetBasePosition() 
 
 end_pos = np.array(env.envs[0].env.robot.GetBasePosition(), dtype=float)
+
+contacts_log = np.array(contacts_log)  # (T, 4)
+time_log_dc = np.array(time_log_dc)
+
+foot_names = ["FR", "FL", "RR", "RL"]
+foot = 0  # choose one foot (0 = FR)
+
+c = contacts_log[:, foot]  # 1 = stance, 0 = swing
+
+# detect touchdown events: 0 -> 1 transitions
+touchdowns = np.where((c[1:] == 1) & (c[:-1] == 0))[0] + 1
+
+if len(touchdowns) < 2:
+    print("Not enough steps detected to compute duty cycle.")
+else:
+    td0, td1 = touchdowns[0], touchdowns[1]
+
+    idx = np.arange(td0, td1)
+    stance_time = np.sum(c[idx] == 1) * DT
+    swing_time  = np.sum(c[idx] == 0) * DT
+    step_time   = stance_time + swing_time
+    duty_cycle  = stance_time / step_time
+
+    print(f"Duty cycle ({foot_names[foot]} foot):")
+    print(f"  Stance time = {stance_time:.3f} s")
+    print(f"  Swing time  = {swing_time:.3f} s")
+    print(f"  Step time   = {step_time:.3f} s")
+    print(f"  Duty cycle  = {duty_cycle:.2f}")
+
 
 # forward distance in x (simple + typical for velocity tracking)
 distance = float(end_pos[0] - start_pos[0])
