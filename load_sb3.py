@@ -158,6 +158,43 @@ print("\nLoaded model", model_name, "\n")
 #
 #
 
+
+obs = env.reset()
+episode_reward = 0
+
+g = 9.81
+SIM_DT = env.envs[0].env._time_step  # simulation timestep (per sim substep)
+
+# robot mass (robust)
+try:
+    mass = float(np.sum(env.envs[0].env.robot.GetTotalMassFromURDF()))
+except Exception:
+    mass = 12.0  # fallback
+print(f"Robot mass [kg] = {mass:.3f}")
+
+# work accumulator: ∫ |tau · qdot| dt   (Joules)
+work_J = 0.0
+
+# distance reference
+start_pos = np.array(env.envs[0].env.robot.GetBasePosition(), dtype=float)
+
+
+
+omega_swing  = 5 * 2 * np.pi
+omega_stance = 2 * 2 * np.pi
+
+T_swing  = np.pi / omega_swing
+T_stance = np.pi / omega_stance
+T_step   = T_swing + T_stance
+duty     = T_stance / T_step
+
+print("CPG timing parameters:")
+print(f"  Swing time   : {T_swing:.3f} s")
+print(f"  Stance time  : {T_stance:.3f} s")
+print(f"  Step time    : {T_step:.3f} s")
+print(f"  Duty cycle   : {duty:.2f}")
+
+
 obs = env.reset()
 episode_reward = 0
 
@@ -173,6 +210,13 @@ t = 0.0
 for i in range(2000):
     action, _states = model.predict(obs,deterministic=False) # sample at test time? ([TODO]: test if the outputs make sense)
     obs, rewards, dones, info = env.step(action)
+    taus = env.envs[0].env._dt_motor_torques
+    qdots = env.envs[0].env._dt_motor_velocities
+    for tau, qdot in zip(taus, qdots):
+        tau = np.asarray(tau, dtype=float)
+        qdot = np.asarray(qdot, dtype=float)
+        work_J += abs(float(np.dot(tau, qdot))) * SIM_DT
+
     episode_reward += rewards
 
     # =========================
@@ -190,6 +234,17 @@ for i in range(2000):
 
     # [TODO] save data from current robot states for plots 
     # To get base position, for example: env.envs[0].env.robot.GetBasePosition() 
+
+end_pos = np.array(env.envs[0].env.robot.GetBasePosition(), dtype=float)
+
+# forward distance in x (simple + typical for velocity tracking)
+distance = float(end_pos[0] - start_pos[0])
+
+if distance <= 1e-6:
+    print("Cost of Transport: not defined (distance too small).")
+else:
+    CoT = work_J / (mass * g * distance)
+    print(f"Cost of Transport = {CoT:.3f}  (work={work_J:.1f} J, dist={distance:.2f} m)")
 
 
 # ============================================================
