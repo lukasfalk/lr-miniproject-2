@@ -155,7 +155,7 @@ for i in range(2000):
     # To get base position, for example: env.envs[0].env.robot.GetBasePosition() 
 
 base_lin_vel = np.array(base_lin_vel)  # shape: (T, 3)
-time_log = np.array(time_log)
+time_log = np.array(time_log) * 10
     
 # =========================
 # Plot base linear velocity
