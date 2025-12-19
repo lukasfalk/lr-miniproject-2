@@ -79,8 +79,11 @@ kp = np.array([100,100,100])
 kd = np.array([2,2,2])
 
 # Cartesian PD gains
-kpCartesian = np.diag([1200, 2000, 1200])
-kdCartesian = np.diag([45, 20, 45])
+kpCartesian = 1.5*np.diag([1200, 2000, 1200])
+kdCartesian = 1.5*np.diag([45, 20, 45])
+
+base_x = np.zeros(TEST_STEPS)
+power = np.zeros(TEST_STEPS)
 
 for j in range(TEST_STEPS):
   # initialize torque array to send to motors
@@ -109,33 +112,35 @@ for j in range(TEST_STEPS):
     dq_des = np.zeros(3) # We want the foot to stand still
     tau += kp @ (leg_q_des - q[i]) + kd @ (dq_des - dq[i])
 
+    # Get desired xyz position in leg frame (use ComputeJacobianAndPosition with the joint angles you just found above)
+    _, pos_des = env.robot.ComputeJacobianAndPosition(i, leg_q_des)
+    # Get current Jacobian and foot position in leg frame (see ComputeJacobianAndPosition() in quadruped.py)
+    J, pos = env.robot.ComputeJacobianAndPosition(i, q[i])
+
     # add Cartesian PD contribution
     if ADD_CARTESIAN_PD:
-      # Get desired xyz position in leg frame (use ComputeJacobianAndPosition with the joint angles you just found above)
-      _, pos_des = env.robot.ComputeJacobianAndPosition(i, leg_q_des)
-
-      # Get current Jacobian and foot position in leg frame (see ComputeJacobianAndPosition() in quadruped.py)
-      J, pos = env.robot.ComputeJacobianAndPosition(i, q[i])
-
       # Get current foot velocity in leg frame (Equation 2)
       vel = J @ dq[i]
 
       # Calculate torque contribution from Cartesian PD (Equation 5) [Make sure you are using matrix multiplications]
       vel_des = np.zeros(3)
       tau += J.T @ (kpCartesian @ (pos_des - pos) + kdCartesian @ (vel_des - vel))
-      
-      feet_positions[i,:,j] = pos
-      feet_desired_positions[i,:,j] = pos_des
+    
+    # Always store
+    feet_positions[i,:,j] = pos
+    feet_desired_positions[i,:,j] = pos_des
 
-      joint_angles[i,:,j] = q[i]
-      joint_angles_des[i,:,j] = leg_q_des
-
+    joint_angles[i,:,j] = q[i]
+    joint_angles_des[i,:,j] = leg_q_des
 
     # Set tau for legi in action vector
     action[3*i:3*i+3] = tau
 
   # send torques to robot and simulate TIME_STEP seconds 
   env.step(action) 
+
+  base_x[j] = env.robot.GetBasePosition()[0]
+  power[j] = np.sum(np.abs(action * dq.flatten()))
 
   # [TODO][x] save any CPG or robot states
   cpg_states[:,0,j] = cpg.get_r()
@@ -145,62 +150,82 @@ for j in range(TEST_STEPS):
 
 # [TODO][x] Create your plots
 leg = 0  # choose which leg to plot
+plot_cpg_all_legs = False
 plot_cpg = False
 plot_foot_position = False
-plot_joint_angles = True
+plot_joint_angles = False
 
-### CPG STATE PLOTS
-if plot_cpg:
-  r         = cpg_states[leg, 0, :]
-  theta     = cpg_states[leg, 1, :]
-  r_dot     = cpg_states[leg, 2, :]
-  theta_dot = cpg_states[leg, 3, :]
 
-  # Optional: wrap theta into [-pi, pi] for readability
-  theta = (theta + np.pi) % (2*np.pi) - np.pi
+############################
+# CPG STATE PLOTS (Q3.1)
+############################
 
-  fig, axs = plt.subplots(4, 1, figsize=(14, 8), sharex=True)
-  fig.suptitle(f"CPG States for Leg {leg}", fontsize=16)
+if plot_cpg_all_legs:
+    leg_names = ["FR", "FL", "RR", "RL"]
+    state_names = [r"$r$", r"$\theta$", r"$\dot{r}$", r"$\dot{\theta}$"]
 
-  # r
-  axs[0].plot(t, r, color="tab:blue", linewidth=1.5)
-  axs[0].set_ylabel(r"$r$")
-  axs[0].grid(True, alpha=0.3)
+    # ---- select ~2 gait cycles ----
+    # Estimate cycle period from average theta_dot
+    avg_theta_dot = np.mean(cpg_states[:, 3, :])
+    T_cycle = 2 * np.pi / avg_theta_dot
+    T_plot = 2 * T_cycle
 
-  # theta
-  axs[1].plot(t, theta, color="tab:red", linewidth=1.5)
-  axs[1].set_ylabel(r"$\theta$ [rad]")
-  axs[1].grid(True, alpha=0.3)
-  axs[1].set_ylim([-np.pi, np.pi])
+    idx_plot = t <= T_plot
+    t_plot = t[idx_plot]
 
-  # r_dot
-  axs[2].plot(t, r_dot, color="tab:green", linewidth=1.5)
-  axs[2].set_ylabel(r"$\dot{r}$")
-  axs[2].grid(True, alpha=0.3)
+    fig, axs = plt.subplots(4, 4, figsize=(18, 10), sharex=True)
+    fig.suptitle("CPG States for Trot Gait (2 Gait Cycles)", fontsize=18)
 
-  # theta_dot
-  axs[3].plot(t, theta_dot, color="tab:purple", linewidth=1.5)
-  axs[3].set_ylabel(r'$\dot{\theta}$ [rad/s]')
-  axs[3].set_xlabel("Time [s]")
-  axs[3].grid(True, alpha=0.3)
+    for leg in range(4):
+        r         = cpg_states[leg, 0, idx_plot]
+        theta     = cpg_states[leg, 1, idx_plot]
+        r_dot     = cpg_states[leg, 2, idx_plot]
+        theta_dot = cpg_states[leg, 3, idx_plot]
 
-  plt.tight_layout(rect=[0, 0, 1, 0.95])
-  plt.show()
+        # # Wrap theta into [-pi, pi]
+        # theta = (theta + np.pi) % (2 * np.pi) - np.pi
+        # theta = np.unwrap(theta)
 
-  ### FOOT POSITION TRACKING PLOT
+        data = [r, theta, r_dot, theta_dot]
+
+        for k in range(4):
+            axs[leg, k].plot(t_plot, data[k], linewidth=1.5)
+            axs[leg, k].grid(True, alpha=0.3)
+
+            if leg == 0:
+                axs[leg, k].set_title(state_names[k], fontsize=12)
+
+            if k == 0:
+                axs[leg, k].set_ylabel(leg_names[leg], fontsize=12)
+
+            if k == 1:
+                axs[leg, k].set_ylim([0, 2*np.pi])
+
+    axs[-1, 0].set_xlabel("Time [s]")
+    axs[-1, 1].set_xlabel("Time [s]")
+    axs[-1, 2].set_xlabel("Time [s]")
+    axs[-1, 3].set_xlabel("Time [s]")
+
+    plt.tight_layout(rect=[0, 0, 1, 0.95])
+    plt.show()
+
+############################
+# FOOT POSITION TRACKING PLOT
+############################
+
 if plot_foot_position:
-  pos     = feet_positions[leg, :, :]          # shape (3, TEST_STEPS)
-  pos_des = feet_desired_positions[leg, :, :]  # shape (3, TEST_STEPS)
+  pos     = feet_positions[leg, :, :]          # (3, T)
+  pos_des = feet_desired_positions[leg, :, :]  # (3, T)
 
   labels = ["x", "y", "z"]
   colors = ["tab:blue", "tab:green", "tab:red"]
 
   fig, axs = plt.subplots(3, 1, figsize=(14, 6), sharex=True)
-  fig.suptitle(f"Foot Position Tracking for Leg {leg}", fontsize=16)
+  fig.suptitle(f"Desired vs Actual Foot Position (Leg {leg})", fontsize=16)
 
   for k in range(3):
-      axs[k].plot(t, pos[k],     linewidth=1.5, color=colors[k], label=f"{labels[k]} actual")
-      axs[k].plot(t, pos_des[k], linewidth=1.2, color="black", linestyle="--", label=f"{labels[k]} desired")
+      axs[k].plot(t, pos_des[k], linestyle="--", color="black", label="Desired")
+      axs[k].plot(t, pos[k], linewidth=1.8, color=colors[k], label="Actual")
 
       axs[k].set_ylabel(f"{labels[k]} [m]")
       axs[k].grid(True, alpha=0.3)
@@ -235,3 +260,25 @@ if plot_joint_angles:
 
   plt.tight_layout(rect=[0, 0, 1, 0.95])
   plt.show()
+
+# Average velocity:
+# Ignore initial transient (first 1 second)
+steady_start = int(1.0 / TIME_STEP)
+
+distance = base_x[-1] - base_x[steady_start]
+time_elapsed = t[-1] - t[steady_start]
+
+avg_velocity = distance / time_elapsed
+
+print(f"Average forward velocity: {avg_velocity:.3f} m/s")
+
+
+# Cost of transport:
+mass = float(np.sum(env.robot.GetTotalMassFromURDF()))
+g = 9.81
+
+energy = np.sum(power) * TIME_STEP
+distance = base_x[-1] - base_x[0]
+CoT = energy / (mass * g * distance)
+
+print(f"Cost of Transport = {CoT:.3f}")
