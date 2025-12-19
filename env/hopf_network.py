@@ -49,7 +49,7 @@ class HopfNetwork():
   def __init__(self,
                 mu=1**2,                 # intrinsic amplitude, converges to sqrt(mu)
                 omega_swing=1.5*2*np.pi,   # frequency in swing phase (can edit)
-                omega_stance=1*2*np.pi,  # frequency in stance phase (can edit)
+                omega_stance=0.8*2*np.pi,  # frequency in stance phase (can edit)
                 gait="TROT",             # Gait, can be TROT, WALK, PACE, BOUND, etc.
                 alpha=10,                # amplitude convergence factor
                 coupling_strength=1,     # coefficient to multiply coupling matrix
