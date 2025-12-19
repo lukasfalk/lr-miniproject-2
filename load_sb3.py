@@ -31,9 +31,10 @@
 import os, sys
 import gymnasium as gym
 import numpy as np
+import pybullet as pb
+import matplotlib.pyplot as plt
 import time
 import matplotlib
-import matplotlib.pyplot as plt
 from sys import platform
 # may be helpful depending on your system
 # if platform =="darwin": # mac
@@ -53,6 +54,9 @@ from stable_baselines3.common.env_util import make_vec_env # fix for newer versi
 from env.quadruped_gym_env import QuadrupedGymEnv
 from utils.utils import plot_results
 from utils.file_utils import get_latest_model, load_all_results
+
+
+from stable_baselines3.common.vec_env import VecVideoRecorder
 
 LEARNING_ALG = "PPO" #"SAC"
 #interm_dir = "./logs/intermediate_models/121325222414"
@@ -99,9 +103,9 @@ interm_dir = "./logs/intermediate_models/121725172313"
 #new run 8 run med obs world frame fixed slopes based on run 4
 #interm_dir = "./logs/intermediate_models/121825102644"
 #new run 9 run med obs world frame random slopes (0.05, 0.3) based on run 4 PPO9
-#interm_dir = "./logs/intermediate_models/121825163357"
+interm_dir = "./logs/intermediate_models/121825163357"
 #new run 10 run med obs world frame random velocity PPO10
-interm_dir = "./logs/intermediate_models/121825181753"
+#interm_dir = "./logs/intermediate_models/121825181753"
 
 
 # path to saved models, i.e. interm_dir + '102824115106'
@@ -118,7 +122,7 @@ env_config['add_noise'] = False
 env_config["motor_control_mode"] = "CPG"
 env_config["task_env"] = "LR_COURSE_TASK"
 env_config["observation_space_mode"] = "LR_COURSE_OBS"
-#env_config["terrain"] = "SLOPES" 
+env_config["terrain"] = "SLOPES" 
 env_config['randomise_commanded_velocity'] = False
 env_config['commanded_velocity'] = np.array([1.0, 0, 0])  
 
@@ -144,6 +148,15 @@ if LEARNING_ALG == "PPO":
 elif LEARNING_ALG == "SAC":
     model = SAC.load(model_name, env)
 print("\nLoaded model", model_name, "\n")
+
+####
+#
+#
+#
+#
+#
+#
+#
 
 obs = env.reset()
 episode_reward = 0
@@ -178,59 +191,189 @@ for i in range(2000):
     # [TODO] save data from current robot states for plots 
     # To get base position, for example: env.envs[0].env.robot.GetBasePosition() 
 
-####
-####
-####
-#### plotting
-####
-####
-####
-base_lin_vel = np.array(base_lin_vel)  # shape: (T, 3)
-time_log = np.array(time_log)
 
-# =========================
-# Plot avg change in velocity error (with shaded band)
-# =========================
-cmd_v = np.array(env_config["commanded_velocity"])  # shape: (3,)
+# ============================================================
+# CONFIG
+# ============================================================
+N_RUNS = 10                 # number of evaluation rollouts
+MAX_STEPS = 2000            # max steps per rollout (safety cap)
+CONFIDENCE = 0.90           # 90% confidence band
+#DT = env.envs[0].env._time_step
+DT = env.envs[0].env._time_step * env.envs[0].env._action_repeat
+cmd_v = np.array(env_config["commanded_velocity"], dtype=float)  # shape (3,)
 
-# 1) Velocity error e(t) = v(t) - cmd
-vel_error = base_lin_vel - cmd_v  # (T, 3)
+# ============================================================
+# Helper: Student-t critical value (with a safe fallback)
+# ============================================================
+def t_critical_value(confidence: float, df: int) -> float:
+    """
+    Returns t_{1-alpha/2, df} for a two-sided CI.
+    Uses scipy if available; falls back to normal approx if not.
+    """
+    alpha = 1.0 - confidence
+    try:
+        from scipy.stats import t
+        return float(t.ppf(1 - alpha / 2, df=df))
+    except Exception:
+        # Normal approx (good when df is large). Still usable if scipy missing.
+        from math import erf, sqrt
 
-# 2) Change in error Δe(t) = e(t) - e(t-1)
-delta_error = np.diff(vel_error, axis=0)  # (T-1, 3)
-t = time_log[1:]  # align with diff output
+        # Inverse CDF of normal: use numpy if available (it is), else fallback is messy.
+        # We'll use a numeric approximation via scipy if present, otherwise this:
+        # We'll just hardcode common z for 90% two-sided: 1.6448536
+        # (because alpha/2 = 0.05 => z = 1.64485)
+        if abs(confidence - 0.90) < 1e-9:
+            return 1.6448536269514722
+        if abs(confidence - 0.95) < 1e-9:
+            return 1.959963984540054
+        if abs(confidence - 0.99) < 1e-9:
+            return 2.5758293035489004
+        # Default fallback
+        return 1.6448536269514722
 
-# 3) Rolling mean/std for "line + shaded area"
-def rolling_mean_std(x, window=50):
-    w = np.ones(window) / window
-    mean = np.convolve(x, w, mode="same")
-    mean_sq = np.convolve(x**2, w, mode="same")
-    var = np.maximum(mean_sq - mean**2, 0.0)
-    std = np.sqrt(var)
-    return mean, std
+# ============================================================
+# 1) Collect errors across runs
+# ============================================================
+# We'll store each rollout as an array of shape (T_i, 3)
+rollout_errors = []
 
-window = 50  # tune: larger = smoother
+# log only once (first rollout)
+pos_log = []
+t_pos = []
+rpy_log = []   # roll, pitch, yaw for ONE run
 
+record_once = True
+
+for run_idx in range(N_RUNS):
+    obs = env.reset()
+
+    run_err = []
+    deterministic = True
+
+    # only for the first rollout
+    log_this_run = (run_idx == 0)
+
+    for step in range(MAX_STEPS):
+        action, _ = model.predict(obs, deterministic=deterministic)
+        obs, reward, done, info = env.step(action)
+
+        # --- velocity error for CI (every run) ---
+        v = env.envs[0].env.robot.GetBaseLinearVelocity()
+        v = np.array(v, dtype=float)
+        run_err.append(v - cmd_v)
+
+        # --- position log ONLY once ---
+        if log_this_run:
+            p = np.array(env.envs[0].env.robot.GetBasePosition(), dtype=float)  # (x,y,z)
+            pos_log.append(p)
+            t_pos.append(step * DT)
+            
+            # orientation -> roll, pitch, yaw
+            quat = env.envs[0].env.robot.GetBaseOrientation()  # quaternion (x,y,z,w)
+            rpy = np.array(env.envs[0].env.robot.GetBaseOrientation(), dtype=float)  # (roll,pitch,yaw) in rad
+            rpy_log.append(rpy)
+
+        if bool(done):
+            break
+
+    rollout_errors.append(np.asarray(run_err))
+
+
+# ============================================================
+# 2) Align runs to a common length
+#    (truncate all to the shortest rollout length)
+# ============================================================
+min_T = min(r.shape[0] for r in rollout_errors)
+if min_T < 5:
+    raise RuntimeError(f"Rollouts are too short (min_T={min_T}). Check termination / done flags.")
+
+errors = np.stack([r[:min_T] for r in rollout_errors], axis=0)  # (N, T, 3)
+
+# time axis in seconds
+t = np.arange(min_T) * DT
+
+# ============================================================
+# 3) Compute mean error and 90% confidence band
+# ============================================================
+N = errors.shape[0]
+T = errors.shape[1]
+
+mean_err = errors.mean(axis=0)                 # (T, 3)
+std_err = errors.std(axis=0, ddof=1)           # (T, 3) sample std
+
+# standard error of the mean
+sem = std_err / np.sqrt(N)                     # (T, 3)
+
+# t critical value for two-sided CI
+tval = t_critical_value(CONFIDENCE, df=N - 1)  # scalar
+
+ci_half = tval * sem                           # (T, 3)
+
+lower = mean_err - ci_half
+upper = mean_err + ci_half
+
+# ============================================================
+# 4) Plot: 3 subplots (x/y/z), line=mean error, shade=90% CI band
+# ============================================================
 fig, axs = plt.subplots(3, 1, figsize=(10, 8), sharex=True)
 
 axis_names = ["x", "y", "z"]
 for i, ax in enumerate(axs):
-    m, s = rolling_mean_std(delta_error[:, i], window=window)
+    ax.plot(t, mean_err[:, i], label=f"Mean error v_{axis_names[i]}")
+    ax.fill_between(t, lower[:, i], upper[:, i], alpha=0.2, label=f"{int(CONFIDENCE*100)}% CI band")
 
-    # main line (rolling mean)
-    ax.plot(t, m, label=f"Δ error v_{axis_names[i]}")
+    ax.set_ylabel("Velocity error [m/s]")
+    ax.grid(True)
+    ax.legend()
 
-    # shaded region (±1 rolling std)
-    ax.fill_between(t, m - s, m + s, alpha=0.2, label="±1 rolling std")
+axs[-1].set_xlabel("Normalized Episode Progress")
+fig.suptitle("Base Linear Velocity Error: Mean ± 90% Confidence Band (across rollouts)")
+plt.tight_layout()
+plt.show()
 
-    ax.set_ylabel("Avg Δ Error [m/s]")
+pos_log = np.array(pos_log)   # (T0, 3)
+t_pos = np.array(t_pos)       # (T0,)
+
+plt.figure(figsize=(10, 5))
+plt.plot(t_pos, pos_log[:, 0], label="x")
+plt.plot(t_pos, pos_log[:, 1], label="y")
+plt.plot(t_pos, pos_log[:, 2], label="z")
+plt.xlabel("Time [s]")
+plt.ylabel("Base position [m]")
+plt.title("Base Position (single rollout)")
+plt.legend()
+plt.grid(True)
+plt.tight_layout()
+plt.show()
+
+
+rpy_log = np.array(rpy_log)  # (T0, 3)
+
+fig, axs = plt.subplots(3, 1, figsize=(10, 8), sharex=True)
+labels = ["roll", "pitch", "yaw"]
+
+for i, ax in enumerate(axs):
+    ax.plot(t_pos, rpy_log[:, i], label=labels[i])
+    ax.set_ylabel("Angle [rad]")
     ax.grid(True)
     ax.legend()
 
 axs[-1].set_xlabel("Time [s]")
-fig.suptitle("Quadruped Base Linear Velocity: Average Change in Error (Line + Band)")
+fig.suptitle("Base Orientation (single rollout)")
 plt.tight_layout()
 plt.show()
+
+
+video_env = VecVideoRecorder(
+    env,
+    video_folder="./videos",
+    record_video_trigger=lambda step: step == 0,
+    video_length=MAX_STEPS,
+    name_prefix="eval_run0",
+)
+
+# run ONE rollout on video_env (run_idx==0), then close it
+
 
 
 
@@ -255,3 +398,41 @@ plt.show()
 # plt.grid(True)
 # plt.tight_layout()
 # plt.show()
+
+
+
+omega_swing_log  = np.array(omega_swing_log)   # (T,) or (T,4)
+omega_stance_log = np.array(omega_stance_log)  # (T,) or (T,4)
+t = np.array(t_pos)  # time axis (T,)
+
+# avoid divide-by-zero
+eps = 1e-6
+omega_swing_log  = np.maximum(omega_swing_log, eps)
+omega_stance_log = np.maximum(omega_stance_log, eps)
+
+T_swing = np.pi / omega_swing_log
+T_stance = np.pi / omega_stance_log
+T_step = T_swing + T_stance
+
+# ---- Plot swing duration (and optionally step duration) ----
+plt.figure(figsize=(10, 5))
+
+if T_swing.ndim == 1:
+    plt.plot(t, T_swing, label="Swing duration")
+    # optional:
+    plt.plot(t, T_step, label="Step duration (swing+stance)")
+else:
+    leg_names = ["FR", "FL", "RR", "RL"]
+    for i in range(T_swing.shape[1]):
+        plt.plot(t, T_swing[:, i], label=f"T_swing {leg_names[i]}")
+    # optional: step duration
+    # for i in range(T_step.shape[1]):
+    #     plt.plot(t, T_step[:, i], label=f"T_step {leg_names[i]}")
+
+plt.xlabel("Time [s]")
+plt.ylabel("Duration [s]")
+plt.title("Swing Duration (computed from ω_swing)")
+plt.grid(True)
+plt.legend()
+plt.tight_layout()
+plt.show()
