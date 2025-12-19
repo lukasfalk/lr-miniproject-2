@@ -55,7 +55,7 @@ from utils.utils import plot_results
 from utils.file_utils import get_latest_model, load_all_results
 
 LEARNING_ALG = "PPO" #"SAC"
-interm_dir = "./logs/intermediate_models/121825005907"
+interm_dir = "./logs/intermediate_models/121925104416"
 # path to saved models, i.e. interm_dir + '102824115106'
 log_dir = interm_dir + ''
 
@@ -104,15 +104,40 @@ print(obs)
 # =========================
 base_lin_vel = []   # list of [vx, vy, vz]
 time_log = []
+# =========================
+# Data logging containers
+# =========================
+base_lin_vel_log = []   # list of [vx, vy, vz]
+base_pos_log = []       # list of [x, y, z]
+base_rpy_log = []       # list of [roll, pitch, yaw]
+time_log = []
 
 dt = env.envs[0].env._time_step  # simulation timestep
 t = 0.0
+frame = env.render()
+
 
 for i in range(2000):
     action, _states = model.predict(obs,deterministic=False) # sample at test time? ([TODO]: test if the outputs make sense)
     obs, rewards, dones, info = env.step(action)
     episode_reward += rewards
-
+    # =========================
+    # Log robot states
+    # =========================
+    # Access the robot instance from the environment
+    robot = env.envs[0].env.robot
+    
+    # 1. Base Linear Velocity
+    v = robot.GetBaseLinearVelocity()
+    base_lin_vel_log.append(v)
+    
+    # 2. Base Position
+    pos = robot.GetBasePosition()
+    base_pos_log.append(pos)
+    
+    # 3. Base Orientation (Roll, Pitch, Yaw)
+    rpy = robot.GetBaseOrientationRollPitchYaw()
+    base_rpy_log.append(rpy)
     # =========================
     # Log base linear velocity
     # =========================
@@ -138,12 +163,42 @@ time_log = np.array(time_log)
 cmd_vx = env_config['commanded_velocity']
 
 plt.figure(figsize=(10, 5))
-plt.plot(time_log, abs(base_lin_vel[:, 0]- cmd_vx[0]), label="v_x")
-plt.plot(time_log, abs(base_lin_vel[:, 1]- cmd_vx[1]), label="v_y")
+plt.plot(time_log, base_lin_vel[:, 0]- cmd_vx[0], label="v_x")
+plt.plot(time_log, base_lin_vel[:, 1]- cmd_vx[1], label="v_y")
 
 plt.xlabel("Time [s]")
 plt.ylabel("Base Linear Velocity Absolute Error [m/s]")
 plt.title("Quadruped Base Linear Velocity Error During Policy Execution")
+plt.legend()
+plt.grid(True)
+plt.tight_layout()
+plt.show()
+
+# Convert lists to numpy arrays so we can slice them (e.g., [:, 0])
+base_lin_vel_log = np.array(base_lin_vel_log)
+base_pos_log = np.array(base_pos_log)
+base_rpy_log = np.array(base_rpy_log)
+time_log = np.array(time_log)
+
+plt.figure(figsize=(10, 5))
+plt.plot(time_log, base_pos_log[:, 0], label="x")
+plt.plot(time_log, base_pos_log[:, 1], label="y")
+plt.plot(time_log, base_pos_log[:, 2], label="z")
+plt.xlabel("Time [s]")
+plt.ylabel("Position [m]")
+plt.title("Base Position vs Time")
+plt.legend()
+plt.grid(True)
+plt.tight_layout()
+plt.show()
+
+plt.figure(figsize=(10, 5))
+plt.plot(time_log, np.degrees(base_rpy_log[:, 0]), label="Roll")
+plt.plot(time_log, np.degrees(base_rpy_log[:, 1]), label="Pitch")
+plt.plot(time_log, np.degrees(base_rpy_log[:, 2]), label="Yaw")
+plt.xlabel("Time [s]")
+plt.ylabel("Angle [degrees]")
+plt.title("Base Orientation vs Time")
 plt.legend()
 plt.grid(True)
 plt.tight_layout()

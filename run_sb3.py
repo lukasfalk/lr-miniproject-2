@@ -54,7 +54,7 @@ from utils.file_utils import get_latest_model
 from env.quadruped_gym_env import QuadrupedGymEnv
 
 LEARNING_ALG = "PPO" # or "SAC"
-LOAD_NN = True # if you want to initialize training with a previous model [NEXT] set to True
+LOAD_NN = False # if you want to initialize training with a previous model [NEXT] set to True
 NUM_ENVS = 1    # how many pybullet environments to create for data collection
 USE_GPU = False # make sure to install all necessary drivers 
 
@@ -64,8 +64,8 @@ def main():
         "motor_control_mode":"CARTESIAN_PD",
         "task_env": "LR_COURSE_TASK", #"FWD_LOCOMOTION", #  "LR_COURSE_TASK",
         "observation_space_mode": "LR_COURSE_OBS",
-        "randomise_commanded_velocity": True, # [NEXT] set to True
-        "commanded_velocity": np.array([0, 0, 0])#, [NEXT] set to [0, 0, 0]
+        "randomise_commanded_velocity": False, # [NEXT] set to True
+        "commanded_velocity": np.array([1, 0, 0])#, [NEXT] set to [0, 0, 0]
         #"terrain": "SLOPES"
     }
 

@@ -257,10 +257,10 @@ class QuadrupedGymEnv(gym.Env):
       max_last_action = np.ones(self._action_dim)  # should be 8 in CPG mode
 
       # --- CPG states ---
-      max_r      = np.ones(4) * 3.0
-      max_dr     = np.ones(4) * 10.0
-      max_theta  = np.ones(4) * np.pi
-      max_dtheta = np.ones(4) * 30.0
+      # max_r      = np.ones(4) * 3.0
+      # max_dr     = np.ones(4) * 10.0
+      # max_theta  = np.ones(4) * np.pi
+      # max_dtheta = np.ones(4) * 30.0
 
       # --- phi and dphi (flattened 4x4) ---
       max_phi  = np.ones(16) * (2*np.pi)     # safe bound; you can wrap to [-pi,pi] if you want
@@ -275,7 +275,7 @@ class QuadrupedGymEnv(gym.Env):
         # max_dq, # comment out for medium OBS.           
         max_contacts,     
         # max_last_action, # comment out for medium OBS.
-        max_r, max_dr, max_theta, max_dtheta,
+        # max_r, max_dr, max_theta, max_dtheta,
         max_phi, max_dphi                     
       )) + OBSERVATION_EPS
       
@@ -285,7 +285,7 @@ class QuadrupedGymEnv(gym.Env):
         # -self._robot_config.VELOCITY_LIMITS, # comment out for medium OBS.
         np.zeros(4),
         # -np.ones(self._action_dim), # comment out for medium OBS.
-        -max_r, -max_dr, -max_theta, -max_dtheta,
+        # -max_r, -max_dr, -max_theta, -max_dtheta,
         -max_phi, -max_dphi
       )) - OBSERVATION_EPS
       
@@ -370,10 +370,10 @@ class QuadrupedGymEnv(gym.Env):
                                           # dq, # comment out for medium OBS.
                                           foot_contacts,
                                           # last_action, # comment out for medium OBS.
-                                          r,
-                                          dr, 
-                                          theta,
-                                          dtheta,
+                                          # r,
+                                          # dr, 
+                                          # theta,
+                                          # dtheta,
                                           phi,
                                           dphi
                                           ))
