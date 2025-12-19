@@ -79,7 +79,7 @@ kp = np.array([100,100,100])
 kd = np.array([2,2,2])
 
 # Cartesian PD gains
-kpCartesian = 0.7*np.diag([1200, 2000, 1200])
+kpCartesian = np.diag([1200, 2000, 1200])
 kdCartesian = np.diag([45, 20, 45])
 
 base_x = np.zeros(TEST_STEPS)
